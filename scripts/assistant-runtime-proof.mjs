@@ -285,5 +285,6 @@ try {
   await Promise.resolve(remote.kill());
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  await fs.rm(root, { recursive: true, force: true });
+  // Chrome can still flush its profile briefly after Browser.close resolves.
+  await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
