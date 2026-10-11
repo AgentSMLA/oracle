@@ -16,6 +16,10 @@ and run the live API suite before shipping major transport changes.
 
 ## Test Cases
 
+### Assistant response recovery (no login)
+
+Run `pnpm build && node scripts/assistant-runtime-proof.mjs` with Chrome installed (`CHROME_PATH` can select Chromium on Linux). The built CLI exercises stale-answer replacement, delayed recheck recovery, and expired-session errors through both local and remote Chrome runners. Each synthetic consultation submits exactly once and records the expected completed or error session. Use `--captures <directory>` to retain CLI output. These disposable profiles and local pages do not establish signed-in provider behavior.
+
 ### Recovered tab retirement
 
 Run `pnpm build && node scripts/recovery-retirement-proof.mjs` for built-CLI harvests against isolated Chrome. The synthetic matrix checks full-answer persistence before owned-tab retirement and preservation of a peer, borrowed/kept targets, active controllers, and the current generation stop control.
