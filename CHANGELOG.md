@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dependencies: refresh OpenAI and Gemini SDKs, Puppeteer, and the pinned Chrome DevTools protocol within the two-day cooldown, retaining Node >=24 and Undici 7.
+
 - Browser: tolerate macOS openrsync vanished-file transfers when copying live Chrome profiles, while rejecting real read errors and missing authentication storage; fixes #550, thanks @Sogl.
 - Browser: release Chrome launched by session recovery according to `keepBrowser`, preserve borrowed browsers and concurrent leases, and show manual-login guidance with hidden-window recovery; fixes #548 and #547, thanks @HidakaKoyo.
 - Browser: capture generated images from current-prompt ChatGPT blob galleries and download their bytes inside the page, preventing image-generation timeouts on the new layout; fixes #549, thanks @HidakaKoyo.
