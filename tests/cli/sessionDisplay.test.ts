@@ -212,6 +212,20 @@ describe("trimBeforeFirstAnswer", () => {
 
     expect(trimBeforeFirstAnswer(input)).toBe("Answer:\n# Recovered report");
   });
+
+  test("skips a stale Deep Research App wrapper before an auto-reattach answer", () => {
+    const input =
+      "Answer:\n" +
+      "Called tool\n" +
+      "Deep Research App\n" +
+      "Response { session_id: abc123 }\n" +
+      "Auto-reattach attempt 2...\n" +
+      "[auto-reattach] captured assistant response on attempt 2\n" +
+      "Answer:\n" +
+      "# Recovered report";
+
+    expect(trimBeforeFirstAnswer(input)).toBe("Answer:\n# Recovered report");
+  });
 });
 
 describe("isDeepResearchPlaceholderCapture", () => {
@@ -271,6 +285,29 @@ describe("isDeepResearchPlaceholderCapture", () => {
       "# Research Report\n" +
       "The recovered findings.\n";
     expect(isDeepResearchPlaceholderCapture(deepResearchMeta, log)).toBe(false);
+  });
+
+  test("does not re-flag a wrapper capture that auto-reattach already recovered", () => {
+    const log =
+      "Answer:\n" +
+      "Called tool\n" +
+      "Deep Research App\n" +
+      "Response { session_id: abc123 }\n" +
+      "[auto-reattach] captured assistant response on attempt 1\n" +
+      "Answer:\n" +
+      "# Research Report\n" +
+      "The recovered findings.\n";
+    expect(isDeepResearchPlaceholderCapture(deepResearchMeta, log)).toBe(false);
+  });
+
+  test("still flags a wrapper that auto-reattach itself captured", () => {
+    const log =
+      "[auto-reattach] captured assistant response on attempt 1\n" +
+      "Answer:\n" +
+      "Called tool\n" +
+      "Deep Research App\n" +
+      "Response { session_id: abc123 }\n";
+    expect(isDeepResearchPlaceholderCapture(deepResearchMeta, log)).toBe(true);
   });
 });
 

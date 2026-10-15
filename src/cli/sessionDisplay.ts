@@ -217,7 +217,7 @@ export async function showStatus({
     const sessionsDir = sessionStore.sessionsDir();
     console.log(
       chalk.yellow(
-        `Showing ${entries.length} of ${total} sessions from the requested range. Run "oracle session --clear" or delete entries in ${sessionsDir} to free space, or rerun with --status-limit/--status-all.`,
+        `Showing ${entries.length} of ${total} sessions from the requested range. Run "oracle session --clear" or delete entries in ${sessionsDir} to free space, or rerun "oracle status" with a higher --limit <count> (maximum 1000); add --all to include older sessions.`,
       ),
     );
   }
@@ -808,9 +808,12 @@ export function trimBeforeFirstAnswer(logText: string): string {
     return logText;
   }
   const laterIndex = logText.lastIndexOf(marker);
-  const reattachIndex = logText.indexOf("[reattach]", index + marker.length);
+  const afterFirstAnswer = index + marker.length;
+  // Reattach writers log "[reattach]"; the session runner's auto-reattach loop logs "[auto-reattach]".
+  const reattachOffset = logText.slice(afterFirstAnswer).search(/\[(?:auto-)?reattach\]/);
+  const reattachIndex = reattachOffset === -1 ? -1 : afterFirstAnswer + reattachOffset;
   if (laterIndex > index && reattachIndex > index && reattachIndex < laterIndex) {
-    const firstCapture = logText.slice(index + marker.length, reattachIndex);
+    const firstCapture = logText.slice(afterFirstAnswer, reattachIndex);
     if (isDeepResearchToolCallPlaceholder(firstCapture)) {
       return logText.slice(laterIndex);
     }

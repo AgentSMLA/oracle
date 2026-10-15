@@ -234,6 +234,17 @@ test.each(["session", "status"])(
       expect(run.stdout).toMatch(/test-shadowed-(globals|legacy)/);
       expect(run.stdout).not.toContain("test-shadowed-newer");
       expect(run.stdout).toContain("Showing 1 of 2 sessions");
+      // The truncation hint names the status command and offers a higher --limit as the remedy;
+      // --all only widens the age window, so it must not be offered as an alternative to --limit.
+      const hint = run.stdout.match(/rerun (.*)$/m)?.[1] ?? "";
+      expect(hint).toMatch(/^"oracle status" with a higher --limit /);
+      expect(hint.match(/--[a-z-]+/g)).toEqual(["--limit", "--all"]);
+      const raised = await oracle([command, "--model", "gpt-5.5", "--limit", "5"]);
+      expect(raised.code).toBe(0);
+      expect(raised.stdout).not.toContain("Showing");
+      const all = await oracle([command, "--all"]);
+      expect(all.stderr).not.toContain("unknown option");
+      expect(all.code).toBe(0);
     } finally {
       await rm(newerDir, { recursive: true, force: true });
     }

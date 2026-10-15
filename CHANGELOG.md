@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- CLI: keep session listings newest-first when legacy metadata lacks a creation time, point truncation hints at supported flags, and list the missing browser controls in advanced help; thanks @postoso.
+- CLI: skip stale Deep Research tool-call wrappers after automatic reattachment so completed sessions display the recovered report without reopening Chrome; thanks @devYRPauli.
+
 ## 0.21.5 - 2026-10-11
 
 **Highlights:** Reliable Chrome recovery and cleanup, faster file bundles, and the source-map-js security fix (CVE-2026-93749).

@@ -964,7 +964,23 @@ export async function listSessionsMetadata(): Promise<SessionMetadata[]> {
       metas.push(meta);
     }
   }
-  return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return metas.sort((a, b) => {
+    const left = sessionSortTime(a);
+    const right = sessionSortTime(b);
+    return right > left ? 1 : right < left ? -1 : 0;
+  });
+}
+
+// Some stored sessions lack a valid createdAt; a NaN comparator result would leave the list
+// partitioned rather than sorted, so fall back to other timestamps and sort the rest last.
+function sessionSortTime(meta: SessionMetadata): number {
+  for (const value of [meta.createdAt, meta.startedAt, meta.completedAt]) {
+    const time = value ? Date.parse(value) : Number.NaN;
+    if (!Number.isNaN(time)) {
+      return time;
+    }
+  }
+  return Number.NEGATIVE_INFINITY;
 }
 
 export function filterSessionsByRange(
