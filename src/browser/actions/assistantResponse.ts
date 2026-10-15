@@ -228,9 +228,19 @@ export function isAnswerNowPlaceholderText(value: unknown): boolean {
   return sawGate && sawOwner;
 }
 
-export function isRetryAssistantUiErrorText(value: unknown, retryVisible: boolean): boolean {
-  if (!retryVisible || typeof value !== "string") return false;
+export function isAssistantTurnUiErrorText(value: unknown, retryVisible: boolean): boolean {
+  if (typeof value !== "string") return false;
   const text = value.toLowerCase().replace(/\s+/g, " ").trim();
+  // This terminal state can render without Retry. Restrict the rest to known UI chrome
+  // so ordinary answers discussing the error are still valid responses.
+  if (
+    /^thinking failed[.!]?(?:\s+retry)?(?:\s+is this conversation helpful so far\??(?:\s+yes\s+no)?)?$/.test(
+      text,
+    )
+  ) {
+    return true;
+  }
+  if (!retryVisible) return false;
   return (
     text.includes("something went wrong") ||
     text.includes("failed to generate") ||
@@ -1020,18 +1030,15 @@ function normalizeAssistantSnapshot(snapshot: AssistantSnapshot | null): {
 
 export function throwIfAssistantUiError(snapshot: AssistantSnapshot | null): void {
   if (snapshot?.uiError !== "temporary_unavailable") return;
-  throw new BrowserAutomationError(
-    "ChatGPT could not generate the submitted assistant turn and offered Retry.",
-    {
-      stage: "assistant-ui-error",
-      code: "chatgpt-ui-warning",
-      uiWarning: {
-        type: "temporary_unavailable",
-        message: "ChatGPT offered Retry for the submitted assistant turn.",
-        source: "assistant-turn",
-      },
+  throw new BrowserAutomationError("ChatGPT could not generate the submitted assistant turn.", {
+    stage: "assistant-ui-error",
+    code: "chatgpt-ui-warning",
+    uiWarning: {
+      type: "temporary_unavailable",
+      message: "ChatGPT reported a generation failure for the submitted assistant turn.",
+      source: "assistant-turn",
     },
-  );
+  });
 }
 
 function isGeneratedImageAssistantAnswer(answer: { html?: string } | null): boolean {
@@ -1352,7 +1359,7 @@ function buildAssistantExtractor(functionName: string): string {
   return `const ${functionName} = () => {
     ${buildClickDispatcher()}
     ${buildThinkingActivityDetailsPredicateJs("readRetryThinkingActivity")}
-    const isRetryAssistantUiError = ${isRetryAssistantUiErrorText.toString()};
+    const isAssistantTurnUiError = ${isAssistantTurnUiErrorText.toString()};
     const ASSISTANT_SELECTOR = ${assistantLiteral};
     const isAssistantTurn = (node) => {
       if (!(node instanceof HTMLElement)) return false;
@@ -1437,7 +1444,7 @@ function buildAssistantExtractor(functionName: string): string {
         return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' &&
           !(style.opacity !== '' && Number(style.opacity) === 0);
       });
-      if (isRetryAssistantUiError(text, retryVisible) && !readRetryThinkingActivity().strong) {
+      if (isAssistantTurnUiError(text, retryVisible) && !readRetryThinkingActivity().strong) {
         return { text, html, messageId, turnId, turnIndex: index, uiError: 'temporary_unavailable' };
       }
       const imageOnlyChrome =

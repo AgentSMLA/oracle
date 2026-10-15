@@ -28,5 +28,5 @@ export {
   buildConversationDebugExpressionForTest,
   buildMarkdownFallbackExtractorForTest,
   buildCopyExpressionForTest,
-  isRetryAssistantUiErrorText,
+  isAssistantTurnUiErrorText,
 } from "./actions/assistantResponse.js";
