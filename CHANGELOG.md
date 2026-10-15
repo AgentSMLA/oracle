@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Browser: reject terminal “Thinking failed” turns with or without Retry instead of saving them as successful answers, while preserving ordinary prose and active-generation safeguards; fixes #565, thanks @postoso.
 - CLI: keep session listings newest-first when legacy metadata lacks a creation time, point truncation hints at supported flags, and list the missing browser controls in advanced help; thanks @postoso.
 - CLI: skip stale Deep Research tool-call wrappers after automatic reattachment so completed sessions display the recovered report without reopening Chrome; thanks @devYRPauli.
 
