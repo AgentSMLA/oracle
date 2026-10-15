@@ -527,6 +527,67 @@ describe("session listing and filtering", () => {
     vi.useRealTimers();
   });
 
+  test("listSessionsMetadata keeps newest-first order when a session has no createdAt", async () => {
+    const writeMeta = async (id: string, fields: Record<string, unknown>) => {
+      const dir = path.join(sessionModule.getSessionsDir(), id);
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        path.join(dir, "meta.json"),
+        JSON.stringify({ id, status: "completed", options: {}, ...fields }),
+      );
+    };
+    for (const [id, createdAt] of [
+      ["a-day-3", "2026-06-03T00:00:00.000Z"],
+      ["b-day-6", "2026-06-06T00:00:00.000Z"],
+      ["c-day-1", "2026-06-01T00:00:00.000Z"],
+      ["e-day-5", "2026-06-05T00:00:00.000Z"],
+      ["f-day-2", "2026-06-02T00:00:00.000Z"],
+    ]) {
+      await writeMeta(id, { createdAt });
+    }
+    // Shape seen in real ~/.oracle/sessions: no createdAt, startedAt null, completedAt set.
+    await writeMeta("d-completed-day-4", {
+      startedAt: null,
+      completedAt: "2026-06-04T00:00:00.000Z",
+    });
+    await writeMeta("g-started-day-7", {
+      createdAt: "not a date",
+      startedAt: "2026-06-07T00:00:00.000Z",
+    });
+    await writeMeta("0-no-timestamps", {});
+    // Precedence: a valid createdAt wins over later startedAt/completedAt, then startedAt over completedAt.
+    await writeMeta("h-created-day-2.5", {
+      createdAt: "2026-06-02T12:00:00.000Z",
+      startedAt: "2026-06-08T00:00:00.000Z",
+      completedAt: "2026-06-09T00:00:00.000Z",
+    });
+    await writeMeta("i-started-day-3.5", {
+      createdAt: "not a date",
+      startedAt: "2026-06-03T12:00:00.000Z",
+      completedAt: "2026-06-10T00:00:00.000Z",
+    });
+    await writeMeta("j-completed-day-1.5", {
+      createdAt: "not a date",
+      startedAt: "also not a date",
+      completedAt: "2026-06-01T12:00:00.000Z",
+    });
+
+    const metas = await sessionModule.listSessionsMetadata();
+    expect(metas.map((meta) => meta.id)).toEqual([
+      "g-started-day-7",
+      "b-day-6",
+      "e-day-5",
+      "d-completed-day-4",
+      "i-started-day-3.5",
+      "a-day-3",
+      "h-created-day-2.5",
+      "f-day-2",
+      "j-completed-day-1.5",
+      "c-day-1",
+      "0-no-timestamps",
+    ]);
+  });
+
   test("deleteSessionsOlderThan removes only sessions past the cutoff", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));

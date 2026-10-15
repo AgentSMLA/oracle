@@ -2976,8 +2976,16 @@ function printDebugHelp(cliName: string): void {
       "Attach to your current Chrome session through its local remote debugging toggle.",
     ],
     ["--browser-url <url>", "Alias for --chatgpt-url."],
+    [
+      "--browser-thinking-time <level>",
+      "Thinking time: light, standard, extended, extra-high, pro, or heavy.",
+    ],
     ["--browser-timeout <ms|s|m>", "Cap total wait time for the assistant response."],
     ["--browser-input-timeout <ms|s|m>", "Cap how long we wait for the composer textarea."],
+    [
+      "--browser-attachment-timeout <ms|s|m>",
+      "Cap how long we wait for attachments to be ready before sending.",
+    ],
     [
       "--browser-recheck-delay <ms|s|m|h>",
       "After timeout, wait then revisit the conversation to retry capture.",
@@ -2992,6 +3000,10 @@ function printDebugHelp(cliName: string): void {
       "Wait for the manual-login profile lock before sending.",
     ],
     [
+      "--browser-max-concurrent-tabs <n>",
+      "Soft limit for parallel tabs sharing one manual-login profile (default 3).",
+    ],
+    [
       "--browser-auto-reattach-delay <ms|s|m|h>",
       "Delay before periodic auto-reattach attempts after a timeout.",
     ],
@@ -3004,14 +3016,25 @@ function printDebugHelp(cliName: string): void {
       "--browser-cookie-wait <ms|s|m>",
       "Wait before retrying cookie sync when Chrome cookies are empty or locked.",
     ],
+    ["--browser-cookie-names <names>", "Comma-separated cookie allowlist for sync."],
+    [
+      "--browser-inline-cookies <jsonOrBase64>",
+      "Use an inline cookie payload (JSON array or base64 JSON).",
+    ],
+    ["--browser-inline-cookies-file <path>", "Load the inline cookie payload from a file."],
     [
       "--browser-cookie-sync",
       "Copy cookies from live Chrome (opt-in; token rotation may invalidate that session).",
     ],
     ["--browser-no-cookie-sync", "Skip copying cookies from your main profile."],
+    ["--browser-allow-cookie-errors", "Continue even if Chrome cookies cannot be copied."],
     [
       "--browser-manual-login",
       "Skip cookie copy; reuse a persistent automation profile and log in manually.",
+    ],
+    [
+      "--browser-manual-login-profile-dir <path>",
+      "Persistent Chrome profile directory for manual-login runs.",
     ],
     ["--browser-headless", "Launch Chrome in headless mode."],
     ["--browser-hide-window", "Hide the Chrome window (macOS headful only)."],
