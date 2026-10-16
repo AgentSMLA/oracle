@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-- Dependencies: refresh provider and MCP SDKs, validation and terminal helpers, lint/test tooling, DevTools protocol, and the Hono adapter, URI parser, protobuf and Vite overrides within the two-day cooldown; retain Node >=24 and Undici 7.
+## 0.21.6 - 2026-10-16
+
+**Highlights:** Report failed browser answers correctly and recover completed Deep Research reports without reopening Chrome.
 
 - Browser: reject terminal “Thinking failed” turns with or without Retry instead of saving them as successful answers, while preserving ordinary prose and active-generation safeguards; fixes #565, thanks @postoso.
-- CLI: keep session listings newest-first when legacy metadata lacks a creation time, point truncation hints at supported flags, and list the missing browser controls in advanced help; thanks @postoso.
 - CLI: skip stale Deep Research tool-call wrappers after automatic reattachment so completed sessions display the recovered report without reopening Chrome; thanks @devYRPauli.
+- CLI: keep session listings newest-first when legacy metadata lacks a creation time, point truncation hints at supported flags, and list the missing browser controls in advanced help; thanks @postoso.
+- Dependencies: refresh provider and MCP SDKs, validation and terminal helpers, lint/test tooling, DevTools protocol, and the Hono adapter, URI parser, protobuf and Vite overrides within the two-day cooldown; retain Node >=24 and Undici 7.
 
 ## 0.21.5 - 2026-10-11
 
