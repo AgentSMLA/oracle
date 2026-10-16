@@ -21,3 +21,5 @@ after npm and GitHub publication, using `HOMEBREW_TAP_TOKEN`.
 Oracle also builds the Developer ID signed and notarized notifier on macOS before packing it. CI requires `MACOS_SIGNING_P12`, `MACOS_SIGNING_P12_PASSWORD`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_PRIVATE_KEY_P8`. CI preflights notarization with read-only `notarytool history` and checks every notifier slice against the macOS 13.0 deployment target. Signing and Gatekeeper verification failures stop publication. The notifier does not ship a Sparkle feed.
 
 Publication uses an existing signed tag; the workflow never creates tags. It requires main-history ancestry and exact-commit push CI without changing repository protection settings. Rehearsals require the current main commit and cannot publish.
+
+For an npm authentication failure, dispatch `release.yml` on `main` with `diagnose_npm_oidc=true`. This skips the build and publication jobs and reports the GitHub identity claims and npm token-exchange result without printing credentials or publishing a package.
