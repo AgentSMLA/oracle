@@ -1,12 +1,12 @@
 import type { UserConfig } from "../config.js";
-import { resolveBrowserApprovalWait } from "../browser/config.js";
+import { resolveBrowserApprovalWait, resolveBrowserNoFocus } from "../browser/config.js";
 import type { RemoteHostBrowserConfig } from "../remote/server.js";
 import { parseRemoteChromeTarget } from "./browserConfig.js";
 import { applyBrowserDefaultsFromConfig, type BrowserDefaultsOptions } from "./browserDefaults.js";
 
 type ServeBrowserFlags = Pick<
   BrowserDefaultsOptions,
-  "browserAttachRunning" | "remoteChrome" | "browserApprovalWait"
+  "browserAttachRunning" | "remoteChrome" | "browserApprovalWait" | "browserNoFocus"
 >;
 
 export function buildServeBrowserConfig(
@@ -19,6 +19,7 @@ export function buildServeBrowserConfig(
     browserApprovalWait:
       options.browserApprovalWait ??
       (process.env.ORACLE_BROWSER_APPROVAL_WAIT?.trim() || undefined),
+    browserNoFocus: options.browserNoFocus,
   };
   const browser = config.browser;
   applyBrowserDefaultsFromConfig(
@@ -28,6 +29,7 @@ export function buildServeBrowserConfig(
         attachRunning: browser?.attachRunning,
         remoteChrome: browser?.remoteChrome,
         approvalWaitMs: browser?.approvalWaitMs,
+        noFocus: browser?.noFocus,
       },
     },
     (key) => (flags[key as keyof ServeBrowserFlags] === undefined ? undefined : "cli"),
@@ -36,5 +38,7 @@ export function buildServeBrowserConfig(
     attachRunning: flags.browserAttachRunning ?? false,
     remoteChrome: flags.remoteChrome ? parseRemoteChromeTarget(flags.remoteChrome) : null,
     approvalWaitMs: resolveBrowserApprovalWait(flags.browserApprovalWait),
+    // Window policy belongs to the host: clients cannot set it, and browser.noFocus: false opts out.
+    noFocus: resolveBrowserNoFocus({ noFocus: flags.browserNoFocus }),
   };
 }

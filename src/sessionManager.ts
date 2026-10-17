@@ -71,6 +71,7 @@ export interface BrowserSessionConfig {
   headless?: boolean;
   keepBrowser?: boolean;
   hideWindow?: boolean;
+  noFocus?: boolean;
   desiredModel?: string | null;
   /** The caller omitted a model and inherited Oracle's browser default. */
   modelIsImplicitDefault?: boolean;

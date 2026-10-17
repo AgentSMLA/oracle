@@ -1,3 +1,4 @@
+import { resolveBrowserNoFocus } from "./config.js";
 import type { BrowserAutomationConfig } from "./types.js";
 
 type BrowserControlConfig = Pick<
@@ -9,12 +10,15 @@ type BrowserControlConfig = Pick<
   | "hideWindow"
   | "keepBrowser"
   | "manualLogin"
+  | "noFocus"
 >;
 
 export interface BrowserControlPlan {
   mode: "attach-running" | "remote-chrome" | "headless" | "hidden-window" | "visible-window";
   launchesChrome: boolean;
   mayFocusWindow: boolean;
+  /** --browser-no-focus: Oracle skips Chrome activation for launch, new tabs, and send. */
+  noFocus?: boolean;
   summary: string;
   guidance: string[];
 }
@@ -23,6 +27,10 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
   const guidance: string[] = [];
   const tabRef = String(config.browserTabRef ?? "").trim();
   const reusesExistingTab = tabRef.length > 0;
+  const noFocus = resolveBrowserNoFocus(config);
+  const noFocusGuidance = reusesExistingTab
+    ? "Oracle reuses that tab without bringing Chrome to the front (--browser-no-focus)."
+    : "Oracle opens its tab in a background window and skips Chrome activation during launch, tab creation, and send (--browser-no-focus). A reattach that falls back to relaunching Chrome can still bring it forward.";
 
   if (config.attachRunning) {
     guidance.push(
@@ -33,10 +41,12 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
     if (config.keepBrowser) {
       guidance.push("The browser stays open because Oracle did not launch it.");
     }
+    if (noFocus) guidance.push(noFocusGuidance);
     return {
       mode: "attach-running",
       launchesChrome: false,
-      mayFocusWindow: true,
+      mayFocusWindow: !noFocus,
+      ...(noFocus ? { noFocus } : {}),
       summary: reusesExistingTab
         ? "attach to an already-running local Chrome tab"
         : "attach to an already-running local Chrome session",
@@ -51,10 +61,17 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
         : "Oracle opens a dedicated tab in the configured remote Chrome session.",
     );
     guidance.push("Local Chrome launch, cookie copy, and window hiding flags are skipped.");
+    // Opening the tab and Page.bringToFront activate a remote Chrome too.
+    guidance.push(
+      noFocus
+        ? noFocusGuidance
+        : "Opening the tab and sending the prompt can still bring that Chrome to the front; add --browser-no-focus to keep it in the background.",
+    );
     return {
       mode: "remote-chrome",
       launchesChrome: false,
-      mayFocusWindow: false,
+      mayFocusWindow: !noFocus,
+      ...(noFocus ? { noFocus } : {}),
       summary: reusesExistingTab
         ? "reuse an existing remote Chrome tab"
         : "reuse an existing remote Chrome session",
@@ -76,24 +93,33 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
   if (config.hideWindow) {
     guidance.push("On macOS, Oracle launches Chrome off-screen while keeping the page rendered.");
     guidance.push(
-      "For the calmest shared-desktop flow, prefer --browser-attach-running or --remote-chrome.",
+      noFocus
+        ? noFocusGuidance
+        : "For the calmest shared-desktop flow, prefer --browser-attach-running or --remote-chrome.",
     );
     return {
       mode: "hidden-window",
       launchesChrome: true,
-      mayFocusWindow: true,
+      mayFocusWindow: !noFocus,
+      ...(noFocus ? { noFocus } : {}),
       summary: "launch Chrome in hidden-window mode",
       guidance,
     };
   }
 
+  if (config.manualLogin) {
+    guidance.push(
+      "Manual-login mode may show the persistent Oracle Chrome profile for sign-in or automation.",
+    );
+  } else if (!noFocus) {
+    guidance.push(
+      "A visible automation Chrome window may take focus while Oracle controls ChatGPT.",
+    );
+  }
   guidance.push(
-    config.manualLogin
-      ? "Manual-login mode may show the persistent Oracle Chrome profile for sign-in or automation."
-      : "A visible automation Chrome window may take focus while Oracle controls ChatGPT.",
-  );
-  guidance.push(
-    "Use --browser-hide-window, --browser-attach-running, or --remote-chrome to reduce desktop disruption.",
+    noFocus
+      ? noFocusGuidance
+      : "Use --browser-hide-window, --browser-attach-running, or --remote-chrome to reduce desktop disruption.",
   );
   if (config.keepBrowser) {
     guidance.push(
@@ -104,7 +130,8 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
   return {
     mode: "visible-window",
     launchesChrome: true,
-    mayFocusWindow: true,
+    mayFocusWindow: !noFocus,
+    ...(noFocus ? { noFocus } : {}),
     summary: "launch visible Chrome",
     guidance,
   };
@@ -113,7 +140,9 @@ export function describeBrowserControlPlan(config: BrowserControlConfig = {}): B
 export function formatBrowserControlPlan(plan: BrowserControlPlan, label = "browser"): string[] {
   const risk = plan.mayFocusWindow
     ? "may focus/control the browser UI"
-    : "does not use a visible local browser window";
+    : plan.noFocus
+      ? "keeps Chrome in the background"
+      : "does not use a visible local browser window";
   return [
     `[${label}] Browser control: ${plan.summary}; ${risk}.`,
     ...plan.guidance.map((entry) => `[${label}] Browser guidance: ${entry}`),

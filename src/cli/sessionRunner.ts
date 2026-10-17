@@ -239,7 +239,11 @@ export async function performSessionRun({
         elapsedMs: result.elapsedMs,
         errorMessage: undefined,
         browser: {
-          config: browserConfig,
+          // A remote host decides no-focus; record what it ran with, not the client's setting.
+          config:
+            result.noFocus === undefined
+              ? browserConfig
+              : { ...browserConfig, noFocus: result.noFocus },
           runtime: result.runtime,
           archive: result.archive,
           modelSelection: result.modelSelection,

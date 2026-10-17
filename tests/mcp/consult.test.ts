@@ -263,6 +263,20 @@ describe("summarizeModelRunsForConsult", () => {
     },
   );
 
+  // MCP sessions record the no-focus setting they ran with; the default is off.
+  test.each([
+    { browser: {}, expected: false },
+    { browser: { noFocus: false }, expected: false },
+    { browser: { noFocus: true }, expected: true },
+  ])("records the resolved no-focus setting for config $browser", ({ browser, expected }) => {
+    const config = buildConsultBrowserConfig({
+      userConfig: { browser },
+      env: {},
+      runModel: "gpt-5.5",
+    });
+    expect(JSON.parse(JSON.stringify(config)).noFocus).toBe(expected);
+  });
+
   test("selects GPT-6 through MCP including explicit strategy overrides", () => {
     expect(
       buildConsultBrowserConfig({ userConfig: {}, env: {}, runModel: "gpt-6-astra" }),

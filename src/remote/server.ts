@@ -13,7 +13,7 @@ import { materializeStagedFallbackBundle } from "../browser/prompt.js";
 import type { BrowserSessionConfig } from "../sessionManager.js";
 import type { runBrowserMode } from "../browserMode.js";
 import { resolveBrowserExecutor } from "../browser/executor.js";
-import { resolveBrowserConfig } from "../browser/config.js";
+import { resolveBrowserConfig, resolveBrowserNoFocus } from "../browser/config.js";
 import { RunSlots } from "./runSlots.js";
 export { RunSlots } from "./runSlots.js";
 import { loadUserConfig } from "../config.js";
@@ -54,7 +54,7 @@ import type { BrowserRunWarning, SessionArtifact } from "../sessionManager.js";
 
 export type RemoteHostBrowserConfig = Pick<
   BrowserSessionConfig,
-  "attachRunning" | "remoteChrome" | "approvalWaitMs"
+  "attachRunning" | "remoteChrome" | "approvalWaitMs" | "noFocus"
 >;
 
 export interface RemoteServerOptions {
@@ -147,6 +147,7 @@ export async function createRemoteServer(
           ? { ...options.browserConfig.remoteChrome }
           : undefined,
         approvalWaitMs: options.browserConfig?.approvalWaitMs,
+        noFocus: options.browserConfig?.noFocus,
       }
     : {};
   const server = http.createServer();
@@ -552,7 +553,11 @@ export async function createRemoteServer(
       }
       sendEvent({
         type: "result",
-        result: sanitizeResult(result, artifactRegistration.warnings),
+        result: sanitizeResult(
+          result,
+          artifactRegistration.warnings,
+          resolveBrowserNoFocus(payload.browserConfig),
+        ),
       });
       logger(
         `[serve] Run ${runId} completed in ${Date.now() - runStartedAt}ms${
@@ -1112,6 +1117,7 @@ async function stageRemoteAttachments(
 function sanitizeResult(
   result: BrowserRunResult,
   warnings: BrowserRunWarning[] = [],
+  noFocus?: boolean,
 ): BrowserRunResult {
   const hostArtifactPaths = [
     ...(result.savedFiles ?? []),
@@ -1157,6 +1163,7 @@ function sanitizeResult(
     promptSubmitted: result.promptSubmitted,
     submittedPromptHash: result.submittedPromptHash,
     warnings: warnings.length > 0 ? warnings : undefined,
+    noFocus,
     chromePid: undefined,
     chromePort: undefined,
     userDataDir: undefined,

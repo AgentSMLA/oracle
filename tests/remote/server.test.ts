@@ -146,6 +146,49 @@ describe("remote browser service", () => {
     },
   );
 
+  test.skipIf(!CAN_LISTEN_LOCALHOST).each([true, false])(
+    "applies the host's no-focus setting and ignores the client's (host noFocus=%s)",
+    async (hostNoFocus) => {
+      let observed: boolean | undefined;
+      const server = await createRemoteServer(
+        {
+          host: "127.0.0.1",
+          port: 0,
+          token: "test-host-no-focus",
+          logger: () => {},
+          browserConfig: { attachRunning: false, approvalWaitMs: 20_000, noFocus: hostNoFocus },
+        },
+        {
+          runBrowser: async (options) => {
+            observed = options.config?.noFocus;
+            return {
+              answerText: "no-focus",
+              answerMarkdown: "no-focus",
+              tookMs: 1,
+              answerTokens: 1,
+              answerChars: 8,
+            };
+          },
+        },
+      );
+      try {
+        const execute = createRemoteBrowserExecutor({
+          host: `127.0.0.1:${server.port}`,
+          token: "test-host-no-focus",
+        });
+        const result = await execute({
+          prompt: "window policy",
+          config: { noFocus: !hostNoFocus },
+        });
+        expect(observed).toBe(hostNoFocus);
+        // Reported back so the client's session records what the host ran with.
+        expect(result.noFocus).toBe(hostNoFocus);
+      } finally {
+        await server.close();
+      }
+    },
+  );
+
   test.skipIf(!CAN_LISTEN_LOCALHOST)(
     "streams logs and returns results via client executor",
     async () => {

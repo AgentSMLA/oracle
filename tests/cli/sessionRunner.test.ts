@@ -1031,6 +1031,35 @@ describe("performSessionRun", () => {
     }
   }, 10_000);
 
+  test.each([
+    { reported: false, saved: false },
+    { reported: undefined, saved: true },
+  ])(
+    "records the no-focus setting the run used (host reported $reported)",
+    async ({ reported, saved }) => {
+      vi.mocked(runBrowserSessionExecution).mockResolvedValue({
+        usage: { inputTokens: 1, outputTokens: 1, reasoningTokens: 0, totalTokens: 2 },
+        elapsedMs: 1,
+        runtime: {},
+        answerText: "Answer",
+        noFocus: reported,
+      });
+      await performSessionRun({
+        sessionMeta: baseSessionMeta,
+        runOptions: baseRunOptions,
+        mode: "browser",
+        // The client's own resolved setting; a remote host's report replaces it.
+        browserConfig: { chromePath: null, noFocus: true },
+        cwd: "/tmp",
+        log,
+        write,
+        version: cliVersion,
+      });
+      const finalUpdate = sessionStoreMock.updateSession.mock.calls.at(-1)?.[1];
+      expect(finalUpdate?.browser?.config?.noFocus).toBe(saved);
+    },
+  );
+
   test("invokes browser runner when mode is browser", async () => {
     vi.mocked(runBrowserSessionExecution).mockResolvedValue({
       usage: { inputTokens: 100, outputTokens: 50, reasoningTokens: 0, totalTokens: 150 },

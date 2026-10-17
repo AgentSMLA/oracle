@@ -6,6 +6,7 @@ import path from "node:path";
 const cdpNewMock = vi.fn();
 const cdpCloseMock = vi.fn();
 const cdpListMock = vi.fn();
+const cdpVersionMock = vi.fn();
 const chromeLaunchMock = vi.fn();
 const cdpMock = Object.assign(vi.fn(), {
   // biome-ignore lint/style/useNamingConvention: CDP API uses capitalized members.
@@ -14,6 +15,8 @@ const cdpMock = Object.assign(vi.fn(), {
   Close: cdpCloseMock,
   // biome-ignore lint/style/useNamingConvention: CDP API uses capitalized members.
   List: cdpListMock,
+  // biome-ignore lint/style/useNamingConvention: CDP API uses capitalized members.
+  Version: cdpVersionMock,
 });
 
 vi.mock("chrome-remote-interface", () => ({ default: cdpMock }));
@@ -252,6 +255,48 @@ describe("hidden-window launch flags", () => {
     }
   });
 
+  test("launches without a startup window only for headful no-focus runs", async () => {
+    const { buildChromeFlagsForTest } = await import("../../src/browser/chromeLifecycle.js");
+
+    expect(buildChromeFlagsForTest(false, undefined, false, true)).toContain("--no-startup-window");
+    expect(buildChromeFlagsForTest(false)).not.toContain("--no-startup-window");
+    expect(buildChromeFlagsForTest(true, undefined, false, true)).not.toContain(
+      "--no-startup-window",
+    );
+  });
+
+  test("launchChrome passes --no-startup-window when the resolved config enables no-focus", async () => {
+    const { launchChrome } = await import("../../src/browser/chromeLifecycle.js");
+    const { resolveBrowserConfig } = await import("../../src/browser/config.js");
+    const userDataDir = await mkdtemp(path.join(os.tmpdir(), "oracle-no-focus-launch-"));
+    const launchFlags: string[][] = [];
+    chromeLaunchMock.mockImplementation(async (options: { chromeFlags?: string[] }) => {
+      launchFlags.push(options.chromeFlags ?? []);
+      return { pid: 1234, port: 9222, kill: vi.fn() };
+    });
+    try {
+      for (const noFocus of [true, false]) {
+        await launchChrome(
+          resolveBrowserConfig({ manualLogin: false, debugPort: 9222, noFocus }),
+          userDataDir,
+          vi.fn() as never,
+        );
+      }
+      // An omitted setting follows the default, which is off.
+      await launchChrome(
+        resolveBrowserConfig({ manualLogin: false, debugPort: 9222 }),
+        userDataDir,
+        vi.fn() as never,
+      );
+    } finally {
+      await rm(userDataDir, { recursive: true, force: true });
+    }
+
+    expect(launchFlags[0]).toContain("--no-startup-window");
+    expect(launchFlags[1]).not.toContain("--no-startup-window");
+    expect(launchFlags[2].includes("--no-startup-window")).toBe(false);
+  });
+
   test("adds the headless launch flag without an off-screen window position", async () => {
     const { buildChromeFlagsForTest } = await import("../../src/browser/chromeLifecycle.js");
     const flags = buildChromeFlagsForTest(true, undefined, true);
@@ -487,10 +532,119 @@ describe("hidden-window launch flags", () => {
 
 describe("connectWithNewTab", () => {
   beforeEach(() => {
+    vi.resetModules();
     cdpMock.mockReset();
     cdpNewMock.mockReset();
     cdpCloseMock.mockReset();
     cdpListMock.mockReset();
+    cdpVersionMock.mockReset();
+  });
+
+  // /json/new and a foreground Target.createTarget both activate Chrome on macOS.
+  const mockBrowserEndpoint = (targetId: string) => {
+    cdpVersionMock.mockResolvedValue({
+      webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/browser/abc",
+    });
+    const createTarget = vi.fn().mockResolvedValue({ targetId });
+    const browserClose = vi.fn().mockResolvedValue(undefined);
+    cdpMock.mockResolvedValueOnce({ Target: { createTarget }, close: browserClose });
+    cdpMock.mockResolvedValueOnce({ page: true });
+    return { createTarget, browserClose };
+  };
+
+  test("opens a background window instead of /json/new in no-focus mode", async () => {
+    const { createTarget, browserClose } = mockBrowserEndpoint("bg-1");
+    const { connectWithNewTab } = await import("../../src/browser/chromeLifecycle.js");
+
+    const logger = vi.fn();
+    const result = await connectWithNewTab(9222, logger, "about:blank", undefined, {
+      background: true,
+    });
+
+    expect(cdpNewMock).not.toHaveBeenCalled();
+    expect(createTarget).toHaveBeenCalledWith({
+      url: "about:blank",
+      background: true,
+      newWindow: true,
+    });
+    expect(browserClose).not.toHaveBeenCalled();
+    expect(cdpMock).toHaveBeenLastCalledWith({ host: "127.0.0.1", port: 9222, target: "bg-1" });
+    expect(result.targetId).toBe("bg-1");
+  });
+
+  test("opens a foreground tab, not the default page, when the background open fails", async () => {
+    // Recorded from chrome-remote-interface against a closed port. A Chrome launched with
+    // --no-startup-window lists no targets, so CDP({ port }) there fails "No inspectable targets".
+    const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:9222"), {
+      code: "ECONNREFUSED",
+    });
+    cdpVersionMock.mockRejectedValue(refused);
+    cdpNewMock.mockResolvedValue({ id: "fg-1" });
+    cdpMock.mockResolvedValue({ page: true });
+    const { connectWithNewTab } = await import("../../src/browser/chromeLifecycle.js");
+
+    const logger = vi.fn();
+    const result = await connectWithNewTab(9222, logger, "about:blank", undefined, {
+      background: true,
+    });
+
+    expect(result.targetId).toBe("fg-1");
+    expect(cdpNewMock).toHaveBeenCalledOnce();
+    // Attached to the new tab only; never to Chrome's default target.
+    expect(cdpMock.mock.calls).toEqual([[{ host: "127.0.0.1", port: 9222, target: "fg-1" }]]);
+    expect(logger).toHaveBeenCalledWith(
+      "[browser] no-focus fallback: opening the tab in the foreground (connect ECONNREFUSED 127.0.0.1:9222).",
+    );
+  });
+
+  test("reaches a remote browser endpoint through the requested host", async () => {
+    mockBrowserEndpoint("bg-2");
+    const { connectWithNewTab } = await import("../../src/browser/chromeLifecycle.js");
+
+    const logger = vi.fn();
+    await connectWithNewTab(9333, logger, "about:blank", "10.0.0.5", { background: true });
+
+    expect(cdpVersionMock).toHaveBeenCalledWith({ host: "10.0.0.5", port: 9333 });
+    expect(cdpMock).toHaveBeenNthCalledWith(1, {
+      target: "ws://10.0.0.5:9333/devtools/browser/abc",
+      local: true,
+    });
+  });
+
+  test("opens an HTTP --remote-chrome tab in a background window in no-focus mode", async () => {
+    const { createTarget } = mockBrowserEndpoint("remote-bg");
+    const { connectToRemoteChrome } = await import("../../src/browser/chromeLifecycle.js");
+    const logger = vi.fn();
+
+    const connection = await connectToRemoteChrome(
+      "10.0.0.5",
+      9333,
+      logger,
+      "about:blank",
+      undefined,
+      { fallbackToDefault: false, background: true },
+    );
+
+    expect(cdpNewMock).not.toHaveBeenCalled();
+    expect(cdpVersionMock).toHaveBeenCalledWith({ host: "10.0.0.5", port: 9333 });
+    expect(createTarget).toHaveBeenCalledWith({
+      url: "about:blank",
+      background: true,
+      newWindow: true,
+    });
+    expect(connection.targetId).toBe("remote-bg");
+  });
+
+  test("creates a background replacement tab in no-focus mode", async () => {
+    const { createTarget } = mockBrowserEndpoint("blank-1");
+    const { createChromePageTarget } = await import("../../src/browser/chromeLifecycle.js");
+
+    const logger = vi.fn();
+    await expect(
+      createChromePageTarget(9222, logger, undefined, { background: true }),
+    ).resolves.toBe("blank-1");
+    expect(cdpNewMock).not.toHaveBeenCalled();
+    expect(createTarget).toHaveBeenCalledWith({ url: "about:blank", background: true });
   });
 
   afterEach(() => {
@@ -629,19 +783,28 @@ describe("connectWithNewTab", () => {
     });
   });
 
-  test("ordinary remote runs never connect to the default tab after target creation fails", async () => {
-    cdpNewMock.mockRejectedValue(new Error("cannot create tab"));
-    const { runBrowserMode } = await import("../../src/browser/index.js");
-    await expect(
-      runBrowserMode({
-        prompt: "A new isolated task",
-        config: { remoteChrome: { host: "127.0.0.1", port: 9222 }, manualLogin: false },
-        log: vi.fn<(message: string) => void>(),
-      }),
-    ).rejects.toThrow(/unrelated conversation/);
-    expect(cdpNewMock).toHaveBeenCalled();
-    expect(cdpMock).not.toHaveBeenCalled();
-  });
+  test.each([false, true])(
+    "ordinary remote runs never connect to the default tab after target creation fails (noFocus=%s)",
+    async (noFocus) => {
+      // Foreground runs create the tab through /json/new; background runs through the browser endpoint.
+      cdpNewMock.mockRejectedValue(new Error("cannot create tab"));
+      cdpVersionMock.mockRejectedValueOnce(new Error("cannot reach browser endpoint"));
+      const { runBrowserMode } = await import("../../src/browser/index.js");
+      await expect(
+        runBrowserMode({
+          prompt: "A new isolated task",
+          config: {
+            remoteChrome: { host: "127.0.0.1", port: 9222 },
+            manualLogin: false,
+            noFocus,
+          },
+          log: vi.fn<(message: string) => void>(),
+        }),
+      ).rejects.toThrow(/unrelated conversation/);
+      expect(noFocus ? cdpVersionMock : cdpNewMock).toHaveBeenCalled();
+      expect(cdpMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("returns isolated target when attach succeeds", async () => {
     cdpNewMock.mockResolvedValue({ id: "target-2" });
@@ -770,6 +933,41 @@ describe("closeBlankChromeTabs", () => {
       port: 9222,
       id: "blank-b",
     });
+  });
+
+  test("opens an attach-running tab in a background window in no-focus mode", async () => {
+    const browserClient = {
+      Target: {
+        createTarget: vi.fn(async () => ({ targetId: "target-bg" })),
+        attachToTarget: vi.fn(async () => ({ sessionId: "session-bg" })),
+        detachFromTarget: vi.fn(async () => ({})),
+        closeTarget: vi.fn(async () => ({ success: true })),
+      },
+      on: vi.fn(),
+      once: vi.fn(),
+      removeListener: vi.fn(),
+      close: vi.fn(async () => {}),
+    };
+    cdpMock.mockResolvedValue(browserClient);
+
+    const { connectToRemoteChrome } = await import("../../src/browser/chromeLifecycle.js");
+    const logger = vi.fn();
+    const connection = await connectToRemoteChrome(
+      "127.0.0.1",
+      9222,
+      logger,
+      "about:blank",
+      "ws://127.0.0.1:9222/devtools/browser/no-focus",
+      { background: true },
+    );
+
+    expect(browserClient.Target.createTarget).toHaveBeenCalledWith({
+      url: "about:blank",
+      background: true,
+      newWindow: true,
+    });
+    expect(connection.targetId).toBe("target-bg");
+    await connection.close();
   });
 
   test("opens a dedicated tab through a browser websocket endpoint", async () => {

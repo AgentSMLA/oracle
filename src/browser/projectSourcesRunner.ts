@@ -4,6 +4,7 @@ import path from "node:path";
 import type { LaunchedChrome } from "chrome-launcher";
 import {
   closeTab,
+  ensureChromePageTargetAfterClose,
   connectWithNewTab,
   launchChrome,
   positionChromeWindowOffscreen,
@@ -11,6 +12,11 @@ import {
   registerTerminationHooks,
 } from "./chromeLifecycle.js";
 import { resolveBrowserConfig } from "./config.js";
+import {
+  bringChromeForwardForUser,
+  enableFocusEmulation,
+  shouldActivateBeforeTrustedInput,
+} from "./focusEmulation.js";
 import { maybeReuseRunningChrome } from "./reuseChrome.js";
 import { clearStaleChatGptConversationCookies, syncCookies } from "./cookies.js";
 import {
@@ -222,9 +228,11 @@ export async function runBrowserProjectSources(
     const strictTabIsolation = Boolean(manualLogin && reusedChrome);
     const devtoolsRetries = manualLogin ? 6 : 0;
     const connection = await connectWithNewTab(chrome.port, logger, "about:blank", chromeHost, {
-      fallbackToDefault: !strictTabIsolation,
+      // A no-focus launch has no startup page, so there is no default tab to fall back to.
+      fallbackToDefault: !strictTabIsolation && !(config.noFocus && !config.headless),
       retries: devtoolsRetries,
       retryDelayMs: 500,
+      background: config.noFocus,
     });
     client = connection.client;
     isolatedTargetId = connection.targetId ?? null;
@@ -257,6 +265,14 @@ export async function runBrowserProjectSources(
     } else if (!config.headless) {
       await positionChromeWindowOnscreen(client, userDataDir, logger);
     }
+    // A no-focus tab stays behind other apps, so its trusted clicks need focus emulation.
+    const activateBeforeTrustedInput = config.noFocus
+      ? shouldActivateBeforeTrustedInput(
+          true,
+          await enableFocusEmulation(client, logger, "Project Sources target"),
+          logger,
+        )
+      : false;
     removeDialogHandler = installJavaScriptDialogAutoDismissal(Page, logger);
     if (!manualLogin) {
       await Network.clearBrowserCookies();
@@ -280,9 +296,25 @@ export async function runBrowserProjectSources(
         timeoutMs: config.timeoutMs,
         profileDir: userDataDir,
         keepBrowser: effectiveKeepBrowser,
+        // Sign-in needs the user, so a no-focus run brings Chrome forward for it once.
+        onLoginRequired:
+          config.noFocus && !config.headless
+            ? async () => {
+                // As in the main sign-in wait, a hidden window has to come back on-screen too.
+                if (config.hideWindow && client)
+                  await positionChromeWindowOnscreen(client, userDataDir, logger);
+                await bringChromeForwardForUser(Page, logger, "sign-in");
+              }
+            : undefined,
       }),
     );
     await raceWithDisconnect(navigateToChatGPT(Page, Runtime, projectUrl, logger));
+    if (activateBeforeTrustedInput) {
+      await Page.bringToFront().catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logger(`[browser] Could not bring Project Sources target to front: ${message}`);
+      });
+    }
     await raceWithDisconnect(openProjectSourcesTab(Runtime, Input, config.inputTimeoutMs, logger));
     await raceWithDisconnect(waitForProjectSourcesReady(Runtime, config.inputTimeoutMs, logger));
 
@@ -324,7 +356,25 @@ export async function runBrowserProjectSources(
       // ignore close failures
     }
     if (completed && isolatedTargetId && chrome?.port) {
-      await closeTab(chrome.port, isolatedTargetId, logger, chromeHost).catch(() => undefined);
+      // A kept Chrome must keep a page, as in the main runner: a no-focus launch has no other one.
+      const safeToClose =
+        !effectiveKeepBrowser ||
+        Boolean(
+          await ensureChromePageTargetAfterClose(
+            chrome.port,
+            isolatedTargetId,
+            logger,
+            chromeHost,
+            { background: config.noFocus },
+          ).catch(() => undefined),
+        );
+      if (safeToClose) {
+        await closeTab(chrome.port, isolatedTargetId, logger, chromeHost).catch(() => undefined);
+      } else {
+        logger(
+          "[browser] Leaving the Project Sources tab open because Chrome has no replacement page target.",
+        );
+      }
     }
 
     let keepBrowserOpen = effectiveKeepBrowser;
@@ -453,6 +503,7 @@ async function waitForProjectSourcesLogin({
   timeoutMs,
   profileDir,
   keepBrowser,
+  onLoginRequired,
 }: {
   runtime: ChromeClient["Runtime"];
   logger: BrowserLogger;
@@ -461,6 +512,7 @@ async function waitForProjectSourcesLogin({
   timeoutMs: number;
   profileDir?: string;
   keepBrowser?: boolean;
+  onLoginRequired?: () => Promise<void>;
 }): Promise<void> {
   if (!manualLogin) {
     await ensureLoggedIn(runtime, logger, { appliedCookies });
@@ -469,6 +521,7 @@ async function waitForProjectSourcesLogin({
   const waitMs = resolveManualLoginWaitMs(timeoutMs, Boolean(keepBrowser));
   const deadline = Date.now() + waitMs;
   let lastNotice = 0;
+  let loginWindowShown = false;
   while (Date.now() < deadline) {
     try {
       await ensureLoggedIn(runtime, logger, { appliedCookies });
@@ -480,6 +533,10 @@ async function waitForProjectSourcesLogin({
         message.toLowerCase().includes("session not detected");
       if (!retryable) {
         throw error;
+      }
+      if (!loginWindowShown) {
+        loginWindowShown = true;
+        await onLoginRequired?.();
       }
       const now = Date.now();
       if (now - lastNotice > 5000) {

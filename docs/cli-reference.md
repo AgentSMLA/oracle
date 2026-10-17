@@ -100,6 +100,7 @@ See [OpenAI / Azure / OpenRouter](openai-endpoints.md) and [OpenRouter](openrout
 | `--browser-max-concurrent-tabs`                                                | Soft limit for shared-profile parallel runs (default 3).                                                                     |
 | `--browser-keep-browser`                                                       | Keep the browser open after the run.                                                                                         |
 | `--browser-headless`, `--browser-hide-window`                                  | Visibility controls.                                                                                                         |
+| `--browser-no-focus`, `--no-browser-no-focus`                                  | Keep Chrome in the background during launch, new tabs, and send; a reattach that relaunches Chrome can still activate it.    |
 | `--browser-attachments <auto\|never\|always>`                                  | Attach files inline vs upload.                                                                                               |
 | `--browser-bundle-files`, `--browser-bundle-format <auto\|text\|zip>`          | Multi-file source uploads bundle by default; `auto` keeps flattened text unless ZIP is selected or raw files are present.    |
 | `--browser-chrome-path`, `--browser-cookie-path`                               | Override Chrome / cookie store discovery (Linux / Windows).                                                                  |

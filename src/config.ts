@@ -60,6 +60,8 @@ export interface BrowserConfigDefaults {
   cookieSyncWaitMs?: number;
   headless?: boolean;
   hideWindow?: boolean;
+  /** Keep the automation Chrome in the background during ordinary runs (--browser-no-focus). */
+  noFocus?: boolean;
   keepBrowser?: boolean;
   modelStrategy?: BrowserModelStrategy;
   /** Thinking time intensity (ChatGPT Thinking/Pro models): 'light', 'standard', 'extended', 'heavy' */
@@ -307,6 +309,7 @@ function sanitizeProjectConfig(config: UserConfig): UserConfig {
       "autoReattachTimeoutMs",
       "cookieSyncWaitMs",
       "hideWindow",
+      "noFocus",
       "keepBrowser",
       "modelStrategy",
       "thinkingTime",

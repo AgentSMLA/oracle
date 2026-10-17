@@ -13,7 +13,11 @@ import { captureAssistantMarkdown, readAssistantSnapshot } from "./actions/assis
 import { buildConversationTurnListExpression } from "./conversationTurns.js";
 import { extractStableConversationIdFromUrl } from "./conversationUrl.js";
 import { delay } from "./utils.js";
-import { connectToRemoteChromeTarget, listRemoteChromeTargets } from "./chromeLifecycle.js";
+import {
+  connectToRemoteChromeTarget,
+  listRemoteChromeTargets,
+  openBackgroundChromeWindow,
+} from "./chromeLifecycle.js";
 
 export const DEFAULT_REMOTE_CHROME_HOST = "127.0.0.1";
 export const DEFAULT_REMOTE_CHROME_PORT = 9222;
@@ -323,7 +327,7 @@ export async function listChatGptTargets(
 }
 
 export async function openChatGptTarget(
-  options: LiveChromeEndpoint & { url?: string } = {},
+  options: LiveChromeEndpoint & { url?: string; background?: boolean } = {},
 ): Promise<string> {
   const endpoint = normalizeHostPort(options);
   const { host, port } = endpoint;
@@ -333,6 +337,7 @@ export async function openChatGptTarget(
       const connection = await connectToRemoteChromeTarget(host, port, noopLogger, {
         ...endpoint,
         targetUrl: url,
+        background: options.background,
       });
       try {
         if (!connection.targetId) throw new Error("Chrome did not return a target ID.");
@@ -341,6 +346,7 @@ export async function openChatGptTarget(
         await connection.close();
       }
     }
+    if (options.background) return await openBackgroundChromeWindow(host, port, url);
     const target = await CDP.New({ host, port, url });
     return target.id;
   } catch (error) {

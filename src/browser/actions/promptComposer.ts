@@ -56,6 +56,11 @@ export async function submitPrompt(
     runtime: ChromeClient["Runtime"];
     input: ChromeClient["Input"];
     page?: ChromeClient["Page"];
+    /**
+     * Bring the target to the front before trusted clicks (default). `false` skips this
+     * explicit activation and relies on the caller having enabled focus emulation.
+     */
+    activateBeforeTrustedInput?: boolean;
     attachmentNames?: AttachmentReadyInput[];
     attachmentNavigationUrl?: string;
     baselineTurns?: number | null;
@@ -349,7 +354,7 @@ export async function submitPrompt(
     logger,
     deps?.attachmentNames,
     deps?.attachmentTimeoutMs,
-    deps?.page,
+    deps?.activateBeforeTrustedInput === false ? undefined : deps?.page,
     deps?.attachmentNavigationUrl,
   );
   if (!clicked) {

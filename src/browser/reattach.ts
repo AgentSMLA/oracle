@@ -21,7 +21,11 @@ import {
   connectToRemoteChromeTarget,
   listRemoteChromeTargets,
 } from "./chromeLifecycle.js";
-import { resolveBrowserApprovalWait, resolveBrowserConfig } from "./config.js";
+import {
+  resolveBrowserApprovalWait,
+  resolveBrowserConfig,
+  resolveBrowserNoFocus,
+} from "./config.js";
 import { clearStaleChatGptConversationCookies, syncCookies } from "./cookies.js";
 import { CHATGPT_URL } from "./constants.js";
 import { buildConversationTurnListExpression } from "./conversationTurns.js";
@@ -140,6 +144,7 @@ async function resumeBrowserSessionInternal(
               targetId: target?.targetId ?? target?.id,
               closeTargetOnDispose: false,
               approvalWaitMs,
+              ...(resolveBrowserNoFocus(config) ? { background: true } : {}),
             })
           : (async () => {
               const client = (await (
@@ -375,7 +380,9 @@ async function resumeBrowserSessionViaNewChrome(
   const launch = deps.launchChrome ?? launchChrome;
   const connectToLaunchedChrome = deps.connectToChrome ?? connectToChrome;
   const chrome = await cancellation.acquire(
-    () => launch(resolved, userDataDir, logger),
+    // This path attaches to Chrome's default page, so it needs the startup window that
+    // no-focus mode would otherwise skip.
+    () => launch({ ...resolved, noFocus: false }, userDataDir, logger),
     async (lateChrome) => {
       if (!resolved.keepBrowser) {
         try {

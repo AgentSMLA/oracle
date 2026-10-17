@@ -11,6 +11,8 @@ import {
 } from "../../bridge/connection.js";
 import type { BridgeConnectionArtifact } from "../../bridge/connection.js";
 import { serveRemote } from "../../remote/server.js";
+import { loadUserConfig } from "../../config.js";
+import { resolveBrowserNoFocus } from "../../browser/config.js";
 
 export interface BridgeHostCliOptions {
   bind?: string;
@@ -25,6 +27,7 @@ export interface BridgeHostCliOptions {
   respawn?: boolean;
   print?: boolean;
   printToken?: boolean;
+  browserNoFocus?: boolean;
 }
 
 interface ReverseTunnelHandle {
@@ -119,6 +122,7 @@ export async function runBridgeHost(options: BridgeHostCliOptions): Promise<void
       sshRemotePort,
       sshIdentity: options.sshIdentity?.trim(),
       sshExtraArgs: options.sshExtraArgs?.trim(),
+      browserNoFocus: options.browserNoFocus,
     });
     return;
   }
@@ -157,12 +161,20 @@ export async function runBridgeHost(options: BridgeHostCliOptions): Promise<void
     console.log(message);
   };
 
+  // Like oracle serve, the host decides its window policy: its flag, then its config, then the
+  // default. Clients cannot change it.
+  const { config } = await loadUserConfig();
+  const noFocus = resolveBrowserNoFocus({
+    noFocus: options.browserNoFocus ?? config.browser?.noFocus,
+  });
+
   try {
     await serveRemote({
       host: bindHost,
       port: bindPort,
       token,
       logger: filteredServeLogger,
+      browserConfig: { noFocus },
     });
   } finally {
     tunnel?.stop();
@@ -325,6 +337,7 @@ async function spawnBridgeHostInBackground({
   sshRemotePort,
   sshIdentity,
   sshExtraArgs,
+  browserNoFocus,
 }: {
   bind: string;
   writeConnectionPath: string;
@@ -332,6 +345,7 @@ async function spawnBridgeHostInBackground({
   sshRemotePort?: number;
   sshIdentity?: string;
   sshExtraArgs?: string;
+  browserNoFocus?: boolean;
 }): Promise<void> {
   const oracleHome = getOracleHomeDir();
   await fs.mkdir(oracleHome, { recursive: true, mode: 0o700 });
@@ -347,6 +361,10 @@ async function spawnBridgeHostInBackground({
   }
   const args: string[] = [
     scriptPath,
+    // Carry the host's explicit no-focus choice; unset leaves the child to read its config.
+    ...(browserNoFocus === undefined
+      ? []
+      : [browserNoFocus ? "--browser-no-focus" : "--no-browser-no-focus"]),
     "bridge",
     "host",
     "--foreground",

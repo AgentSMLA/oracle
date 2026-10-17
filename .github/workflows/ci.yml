@@ -104,6 +104,9 @@ jobs:
       - name: Run service admission and cancellation proof
         if: matrix.suite == 'core'
         run: node scripts/serve-queue-proof.mjs
+      - name: Run opt-in background input and cleanup proof
+        if: matrix.suite == 'core'
+        run: node --import tsx scripts/browser-no-focus-proof.mjs
       - name: Run attachment send proof
         if: matrix.suite == 'core'
         run: node scripts/attachment-send-proof.mjs

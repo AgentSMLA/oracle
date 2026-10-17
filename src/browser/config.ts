@@ -56,6 +56,7 @@ export const DEFAULT_BROWSER_CONFIG: ResolvedBrowserConfig = {
   headless: false,
   keepBrowser: false,
   hideWindow: false,
+  noFocus: false,
   desiredModel: DEFAULT_MODEL_TARGET,
   modelStrategy: DEFAULT_MODEL_STRATEGY,
   debug: false,
@@ -139,6 +140,7 @@ export function resolveBrowserConfig(
     headless: config?.headless ?? DEFAULT_BROWSER_CONFIG.headless,
     keepBrowser: config?.keepBrowser ?? DEFAULT_BROWSER_CONFIG.keepBrowser,
     hideWindow: config?.hideWindow ?? DEFAULT_BROWSER_CONFIG.hideWindow,
+    noFocus: resolveBrowserNoFocus(config),
     desiredModel,
     modelStrategy,
     chromeProfile: config?.chromeProfile ?? DEFAULT_BROWSER_CONFIG.chromeProfile,
@@ -201,6 +203,14 @@ function resolveManualLoginProfileDir(...candidates: Array<string | null | undef
     if (profileDir) return profileDir;
   }
   return path.join(os.homedir(), ".oracle", "browser-profile");
+}
+
+/**
+ * Whether --browser-no-focus applies. Every reader goes through this, so DEFAULT_BROWSER_CONFIG.noFocus
+ * is the one place the default lives; an explicit false (flag or config) always wins.
+ */
+export function resolveBrowserNoFocus(config?: { noFocus?: boolean } | null): boolean {
+  return config?.noFocus ?? DEFAULT_BROWSER_CONFIG.noFocus;
 }
 
 export function resolveBrowserApprovalWait(value?: string | number): number {

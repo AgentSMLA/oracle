@@ -114,6 +114,13 @@ export interface BrowserAutomationConfig {
   headless?: boolean;
   keepBrowser?: boolean;
   hideWindow?: boolean;
+  /**
+   * Skip Chrome activation during ordinary runs: launch without a startup window, open run
+   * tabs in background windows, and skip Page.bringToFront before trusted clicks while focus
+   * emulation keeps the page rendering. Session recovery and harvest honor it too; a reattach
+   * that falls back to relaunching Chrome uses a startup window and can still activate it.
+   */
+  noFocus?: boolean;
   desiredModel?: string | null;
   modelIsImplicitDefault?: boolean;
   modelStrategy?: BrowserModelStrategy;
@@ -204,6 +211,11 @@ export interface BrowserArchiveResult {
 }
 
 export interface BrowserRunResult {
+  /**
+   * The no-focus setting a remote host actually ran with. Informational only: the caller records
+   * it in the session, and a host never accepts it back as a client setting.
+   */
+  noFocus?: boolean;
   answerText: string;
   answerMarkdown: string;
   answerHtml?: string;

@@ -133,6 +133,25 @@ describe("openGeminiBrowserSession", () => {
     },
   );
 
+  it.each([{}, { noFocus: true }])(
+    "keeps the startup window on a cold Gemini launch (%j)",
+    async (browserConfig) => {
+      // Gemini still opens its tab through /json/new, and a failed open falls back to the
+      // startup page, so its launch must not go windowless under the no-focus default.
+      const { openGeminiBrowserSession } =
+        await import("../../src/gemini-web/browserSessionManager.js");
+      const session = await openGeminiBrowserSession({
+        browserConfig: { ...browserConfig, manualLoginProfileDir: tempRoot },
+        keepBrowserDefault: true,
+        purpose: "fixture",
+      });
+      expect(launchChrome).toHaveBeenCalledOnce();
+      expect(launchChrome.mock.calls[0]?.[0]).toMatchObject({ noFocus: false });
+      expect(connectWithNewTab).toHaveBeenCalledWith(9222, expect.any(Function), undefined);
+      await session.close();
+    },
+  );
+
   it("prefers an explicit manual-login profile dir over the environment", async () => {
     const explicitDir = path.join(tempRoot, "explicit-profile");
     process.env.ORACLE_BROWSER_PROFILE_DIR = path.join(tempRoot, "env-profile");

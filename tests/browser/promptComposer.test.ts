@@ -398,6 +398,64 @@ describe("promptComposer", () => {
     }
   });
 
+  describe("send-click activation", () => {
+    // Page.bringToFront makes Chrome the frontmost macOS app; --browser-no-focus skips it
+    // and relies on focus emulation, which still delivers the trusted click.
+    const send = async (activateBeforeTrustedInput?: boolean) => {
+      const events: string[] = [];
+      const prompt = "Reply with the word ok.";
+      const runtime = {
+        evaluate: vi.fn(async ({ expression }: { expression: string }) => {
+          if (expression.includes("status: 'settling'")) {
+            return { result: { value: { status: "point", x: 30, y: 40 } } };
+          }
+          if (expression.includes("editorText")) {
+            return {
+              result: { value: { editorText: prompt, fallbackValue: "", activeValue: "" } },
+            };
+          }
+          return { result: { value: { focused: true, ready: true, composer: true } } };
+        }),
+      };
+      const input = {
+        insertText: vi.fn(),
+        dispatchKeyEvent: vi.fn(),
+        dispatchMouseEvent: vi.fn(async ({ type }: { type: string }) => events.push(type)),
+      };
+      const page = { bringToFront: vi.fn(async () => events.push("bringToFront")) };
+      vi.useFakeTimers();
+      try {
+        const outcome = submitPrompt(
+          {
+            runtime: runtime as never,
+            input: input as never,
+            page: page as never,
+            activateBeforeTrustedInput,
+            onPromptSubmitted: () => {
+              throw new Error("stop-after-send");
+            },
+          },
+          prompt,
+          Object.assign(vi.fn(), { verbose: false }) as never,
+        );
+        const settled = expect(outcome).rejects.toThrow("stop-after-send");
+        await vi.advanceTimersByTimeAsync(5_000);
+        await settled;
+      } finally {
+        vi.useRealTimers();
+      }
+      return events;
+    };
+
+    test("brings the target to the front before the trusted click by default", async () => {
+      expect(await send()).toEqual(["bringToFront", "mouseMoved", "mousePressed", "mouseReleased"]);
+    });
+
+    test("clicks without activating Chrome when activation is disabled", async () => {
+      expect(await send(false)).toEqual(["mouseMoved", "mousePressed", "mouseReleased"]);
+    });
+  });
+
   describe("prompt delivery into a contenteditable composer", () => {
     // ChatGPT's newer ProseMirror composer treats a typed newline as Enter: a multi-line prompt was
     // submitted after its first line and the rest silently dropped (#517). Multi-line text is pasted.

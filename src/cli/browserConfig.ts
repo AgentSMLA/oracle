@@ -7,7 +7,7 @@ import { normalizeThinkingTimeLevel } from "../oracle/thinkingTime.js";
 import { CHATGPT_URL, DEFAULT_MODEL_STRATEGY, DEFAULT_MODEL_TARGET } from "../browser/constants.js";
 import { normalizeChatgptUrl } from "../browser/utils.js";
 import { parseDuration } from "../duration.js";
-import { resolveBrowserApprovalWait } from "../browser/config.js";
+import { resolveBrowserApprovalWait, resolveBrowserNoFocus } from "../browser/config.js";
 import { normalizeBrowserModelStrategy } from "../browser/modelStrategy.js";
 import type {
   BrowserArchiveMode,
@@ -88,6 +88,7 @@ export interface BrowserFlagOptions {
   browserInlineCookies?: string;
   browserHeadless?: boolean;
   browserHideWindow?: boolean;
+  browserNoFocus?: boolean;
   browserKeepBrowser?: boolean;
   browserManualLogin?: boolean;
   browserManualLoginProfileDir?: string | null;
@@ -351,6 +352,9 @@ export async function buildBrowserConfig(
     manualLoginCookieSync: inline?.cookies?.length ? true : options.browserManualLoginCookieSync,
     copyProfileSource: options.copyProfile ?? undefined,
     hideWindow: options.browserHideWindow ? true : undefined,
+    // Save what the run uses, so recovery and reattach later follow this run's setting rather
+    // than whatever the default is by then. An explicit false still opts out.
+    noFocus: resolveBrowserNoFocus({ noFocus: options.browserNoFocus }),
     desiredModel,
     modelStrategy,
     debug: options.verbose ? true : undefined,

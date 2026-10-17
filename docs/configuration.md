@@ -52,6 +52,7 @@ JSON5 parsing, so trailing commas and comments are allowed.
     manualLoginProfileDir: null, // override profile dir (or set ORACLE_BROWSER_PROFILE_DIR)
     headless: false,
     hideWindow: false,
+    noFocus: false, // keep Chrome in the background during launch, new tabs, and send (see --browser-no-focus)
     keepBrowser: false,
     manualLoginCookieSync: false, // explicitly seed the manual-login profile from live Chrome cookies
   },

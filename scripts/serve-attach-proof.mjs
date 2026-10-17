@@ -89,6 +89,9 @@ async function prove(mode) {
         remoteChrome: { host: "127.0.0.1", port: mode === "config" ? port : 1 },
         approvalWaitMs: mode === "config" ? 1000 : 1,
         maxConcurrentTabs: 2,
+        // This proof counts exactly one tab request per route; the background open and its
+        // foreground retry are covered by the chromeLifecycle tests.
+        noFocus: false,
       },
     }),
   );

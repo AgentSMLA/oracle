@@ -137,6 +137,41 @@ describe("resumeBrowserSession", () => {
     }
   });
 
+  test.each([true, false])(
+    "creates a reattach tab in the background only when the session saved noFocus=%s",
+    async (noFocus) => {
+      // No saved tab is listed, so reattach must create one through the browser socket.
+      const list = vi.spyOn(chromeLifecycle, "listRemoteChromeTargets").mockResolvedValue([]);
+      const connect = vi
+        .spyOn(chromeLifecycle, "connectToRemoteChromeTarget")
+        .mockRejectedValue(new Error("synthetic stop after attach"));
+      const recoverSession = vi.fn(async () => ({
+        answerText: "recovered",
+        answerMarkdown: "recovered",
+      }));
+      try {
+        await resumeBrowserSession(
+          {
+            chromePort: 9222,
+            chromeBrowserWSEndpoint: "ws://127.0.0.1:9222/devtools/browser/no-focus-fixture",
+            tabUrl: "https://chatgpt.com/c/saved",
+          },
+          { noFocus },
+          vi.fn<(message: string) => void>(),
+          { recoverSession },
+        );
+        expect(connect).toHaveBeenCalledOnce();
+        const options = connect.mock.calls[0]?.[3];
+        expect(options?.targetId).toBeUndefined();
+        if (noFocus) expect(options).toMatchObject({ background: true });
+        else expect(options).not.toHaveProperty("background");
+      } finally {
+        list.mockRestore();
+        connect.mockRestore();
+      }
+    },
+  );
+
   test.each([false, true])(
     "captures the answer when final identity lookup fails=%s",
     async (identityFails) => {

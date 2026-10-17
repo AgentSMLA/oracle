@@ -161,6 +161,43 @@ describe("recoverConversationTab flow", () => {
     },
   );
 
+  test.each([true, false])(
+    "opens recovery tabs in the background only when the session saved noFocus=%s",
+    async (noFocus) => {
+      const openChatGptTarget = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("ECONNREFUSED"))
+        .mockResolvedValueOnce("target-2");
+      const chrome = { port: 53999, kill: vi.fn(), process: { unref: vi.fn() } };
+      vi.doMock("../../src/browser/liveTabs.js", () => ({
+        extractConversationIdFromUrl: (url: string) =>
+          url.includes("/c/") ? url.split("/c/")[1] : null,
+        openChatGptTarget,
+        harvestChatGptTab: vi.fn(async () => readyHarvest),
+      }));
+      vi.doMock("../../src/browser/index.js", () => ({
+        acquireManualLoginChromeForRun: vi.fn(async () => ({ chrome })),
+        isImageOnlyUiChromeText: () => false,
+      }));
+
+      const { recoverConversationTab } = await import("../../src/browser/recoverConversation.js");
+      const recovered = await recoverConversationTab(
+        { ...meta, browser: { ...meta.browser, config: { ...meta.browser?.config, noFocus } } },
+        logger,
+        { existingEndpoint: { host: "127.0.0.1", port: 9222 }, readyTimeoutMs: 1 },
+      );
+
+      const url = "https://chatgpt.com/c/saved-conversation";
+      const placement = noFocus ? { background: true } : {};
+      // Both the existing-endpoint attempt and the relaunched Chrome honor the saved setting.
+      expect(openChatGptTarget.mock.calls).toEqual([
+        [{ host: "127.0.0.1", port: 9222, url, ...placement }],
+        [{ host: "127.0.0.1", port: 53999, url, ...placement }],
+      ]);
+      await recovered.release();
+    },
+  );
+
   test("does not require a local profile when reopening through a recorded endpoint", async () => {
     const openChatGptTarget = vi.fn(async () => "target-1");
     const harvestChatGptTab = vi.fn(async () => readyHarvest);

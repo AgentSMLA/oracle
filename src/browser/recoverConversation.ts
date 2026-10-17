@@ -195,7 +195,11 @@ export async function recoverConversationTab(
           `[browser] Recovery: opening saved conversation in existing Chrome at ` +
             `${options.existingEndpoint.host}:${options.existingEndpoint.port}`,
         );
-        const targetId = await openChatGptTarget({ ...options.existingEndpoint, url });
+        const targetId = await openChatGptTarget({
+          ...options.existingEndpoint,
+          url,
+          ...(config.noFocus ? { background: true } : {}),
+        });
         await lease?.update({
           chromeHost: options.existingEndpoint.host,
           chromePort: options.existingEndpoint.port,
@@ -230,7 +234,12 @@ export async function recoverConversationTab(
       await recordRecoveryChromeOwnership(userDataDir, chrome.pid, launchStartedAt);
     const host = chrome.host ?? "127.0.0.1";
     const port = chrome.port;
-    const targetId = await openChatGptTarget({ host, port, url });
+    const targetId = await openChatGptTarget({
+      host,
+      port,
+      url,
+      ...(config.noFocus ? { background: true } : {}),
+    });
     if (waitForReady) {
       await waitForRecoveredConversationReady({ host, port }, targetId, readyTimeoutMs);
     }

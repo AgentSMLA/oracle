@@ -9,6 +9,10 @@ import {
   runBrowserSessionExecution,
 } from "../../src/browser/sessionRunner.js";
 import { BrowserRunCancelledError } from "../../src/oracle/errors.js";
+import {
+  enableFocusEmulation,
+  shouldActivateBeforeTrustedInput,
+} from "../../src/browser/focusEmulation.js";
 import type { BrowserPromptArtifacts } from "../../src/browser/prompt.js";
 
 const baseRunOptions: RunOracleOptions = {
@@ -704,6 +708,34 @@ describe("runBrowserSessionExecution", () => {
     expect(noisyLogger).toHaveBeenCalled(); // ensure executeBrowser ran
   });
 
+  test("passes a remote host's no-focus setting up to the session", async () => {
+    const result = await runBrowserSessionExecution(
+      { runOptions: baseRunOptions, browserConfig: { noFocus: true }, cwd: "/repo", log: vi.fn() },
+      {
+        assemblePrompt: async () => ({
+          markdown: "prompt",
+          composerText: "prompt",
+          estimatedInputTokens: 5,
+          attachments: [],
+          inlineFileCount: 0,
+          tokenEstimateIncludesInlineFiles: false,
+          attachmentsPolicy: "auto",
+          attachmentMode: "inline",
+          fallback: null,
+        }),
+        executeBrowser: async () => ({
+          answerText: "text",
+          answerMarkdown: "markdown",
+          tookMs: 1,
+          answerTokens: 1,
+          answerChars: 4,
+          noFocus: false,
+        }),
+      },
+    );
+    expect(result.noFocus).toBe(false);
+  });
+
   test("prints fallback retry logs even when not verbose", async () => {
     const log = vi.fn();
     await runBrowserSessionExecution(
@@ -740,6 +772,58 @@ describe("runBrowserSessionExecution", () => {
     expect(
       log.mock.calls.some((call) => String(call[0]).includes("Inline prompt too large; retrying")),
     ).toBe(true);
+  });
+
+  test("prints the no-focus fallback line but not routine focus emulation without verbose", async () => {
+    const log = vi.fn();
+    await runBrowserSessionExecution(
+      {
+        runOptions: { ...baseRunOptions, verbose: false },
+        browserConfig: { noFocus: true },
+        cwd: "/repo",
+        log,
+      },
+      {
+        assemblePrompt: async () => ({
+          markdown: "prompt",
+          composerText: "prompt",
+          estimatedInputTokens: 5,
+          attachments: [],
+          inlineFileCount: 0,
+          tokenEstimateIncludesInlineFiles: false,
+          attachmentsPolicy: "auto",
+          attachmentMode: "inline",
+          fallback: null,
+        }),
+        executeBrowser: async ({ log: automationLog }) => {
+          const browserLog = automationLog ?? (() => {});
+          // The real helpers emit these lines; one target enables emulation, one cannot.
+          const working = { Emulation: { setFocusEmulationEnabled: async () => ({}) } };
+          const broken = {
+            Emulation: {
+              setFocusEmulationEnabled: async () => {
+                throw new Error("not supported");
+              },
+            },
+          };
+          await enableFocusEmulation(working as never, browserLog, "local target");
+          const emulated = await enableFocusEmulation(broken as never, browserLog, "local target");
+          shouldActivateBeforeTrustedInput(true, emulated, browserLog);
+          return {
+            answerText: "text",
+            answerMarkdown: "markdown",
+            tookMs: 1,
+            answerTokens: 1,
+            answerChars: 4,
+          };
+        },
+      },
+    );
+    const printed = log.mock.calls.map((call) => String(call[0]));
+    expect(printed).toContain(
+      "[browser] Focus emulation is unavailable; no-focus fallback: Oracle will bring Chrome to the front before trusted clicks.",
+    );
+    expect(printed.some((line) => line.includes("Focus emulation enabled"))).toBe(false);
   });
 
   test("prints manual login guidance even when not verbose", async () => {

@@ -8,6 +8,7 @@ interface ChatgptDomProviderState {
   runtime: ChromeClient["Runtime"];
   input: ChromeClient["Input"];
   page?: ChromeClient["Page"];
+  activateBeforeTrustedInput?: boolean;
   logger: BrowserLogger;
   timeoutMs: number;
   inputTimeoutMs?: number;
@@ -44,6 +45,7 @@ async function submitPromptViaAdapter(ctx: ProviderDomFlowContext): Promise<void
       runtime: state.runtime,
       input: state.input,
       page: state.page,
+      activateBeforeTrustedInput: state.activateBeforeTrustedInput,
       attachmentNames: state.attachmentNames ?? [],
       attachmentNavigationUrl: state.attachmentNavigationUrl,
       baselineTurns: state.baselineTurns ?? undefined,

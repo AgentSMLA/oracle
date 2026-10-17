@@ -4,13 +4,24 @@ import { buildServeBrowserConfig } from "../../src/cli/serveBrowserConfig.js";
 beforeEach(() => vi.stubEnv("ORACLE_BROWSER_APPROVAL_WAIT", ""));
 afterEach(() => vi.unstubAllEnvs());
 
+// No-focus is off by default.
+const defaultNoFocus = false;
+
 describe("service host browser routing", () => {
   test("keeps local bootstrap and the 20-second wait by default", () => {
     expect(buildServeBrowserConfig({}, {})).toEqual({
       attachRunning: false,
       remoteChrome: null,
       approvalWaitMs: 20_000,
+      noFocus: defaultNoFocus,
     });
+  });
+  test("keeps the host's Chrome in the background unless the host opts out", () => {
+    expect(buildServeBrowserConfig({}, { browser: { noFocus: false } }).noFocus).toBe(false);
+    expect(buildServeBrowserConfig({}, { browser: { noFocus: true } }).noFocus).toBe(true);
+    expect(
+      buildServeBrowserConfig({ browserNoFocus: false }, { browser: { noFocus: true } }).noFocus,
+    ).toBe(false);
   });
   test("loads the host route without copying conversation or credential settings", () => {
     expect(
@@ -31,6 +42,7 @@ describe("service host browser routing", () => {
       attachRunning: true,
       remoteChrome: { host: "::1", port: 9333 },
       approvalWaitMs: 75_000,
+      noFocus: defaultNoFocus,
     });
   });
   test("gives flags precedence over persisted host settings", () => {
@@ -49,6 +61,7 @@ describe("service host browser routing", () => {
       attachRunning: false,
       remoteChrome: { host: "127.0.0.1", port: 9444 },
       approvalWaitMs: 300_000,
+      noFocus: defaultNoFocus,
     });
   });
   test("applies environment wait above config and below the explicit flag", () => {

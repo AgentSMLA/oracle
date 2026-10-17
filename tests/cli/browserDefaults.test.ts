@@ -170,6 +170,7 @@ describe("applyBrowserDefaultsFromConfig", () => {
         cookieSyncWaitMs: 4_000,
         headless: true,
         hideWindow: true,
+        noFocus: true,
         keepBrowser: true,
       },
     };
@@ -188,6 +189,7 @@ describe("applyBrowserDefaultsFromConfig", () => {
     expect(options.browserCookieSync).toBe(true);
     expect(options.browserHeadless).toBe(true);
     expect(options.browserHideWindow).toBe(true);
+    expect(options.browserNoFocus).toBe(true);
     expect(options.browserKeepBrowser).toBe(true);
   });
 
@@ -416,6 +418,7 @@ describe("applyBrowserDefaultsFromConfig", () => {
         headless: true,
         manualLoginCookieSync: true,
         hideWindow: true,
+        noFocus: true,
         keepBrowser: true,
         manualLogin: true,
         manualLoginProfileDir: "/tmp/oracle-profile",
@@ -434,6 +437,8 @@ describe("applyBrowserDefaultsFromConfig", () => {
     expect(options.browserHeadless).toBeUndefined();
     expect(options.browserManualLoginCookieSync).toBeUndefined();
     expect(options.browserHideWindow).toBeUndefined();
+    // Attach-running opens its own tab, so the no-focus preference still applies.
+    expect(options.browserNoFocus).toBe(true);
     expect(options.browserKeepBrowser).toBeUndefined();
     expect(options.browserManualLogin).toBeUndefined();
     expect(options.browserManualLoginProfileDir).toBeUndefined();

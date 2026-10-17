@@ -154,6 +154,7 @@ interface CliOptions extends OptionValues {
   browserInlineCookies?: string;
   browserHeadless?: boolean;
   browserHideWindow?: boolean;
+  browserNoFocus?: boolean;
   browserKeepBrowser?: boolean;
   browserTab?: string;
   browserModelStrategy?: "select" | "current" | "ignore";
@@ -813,6 +814,18 @@ program
     new Option(
       "--browser-hide-window",
       "Hide the Chrome window after launch (macOS headful only).",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--browser-no-focus",
+      "Keep the automation Chrome in the background during launch, new tabs, and send (a reattach that falls back to relaunching Chrome can still activate it).",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--no-browser-no-focus",
+      "Let Chrome come to the front during launch, new tabs, and send, as before (same as browser.noFocus: false).",
     ).hideHelp(),
   )
   .addOption(
@@ -3038,6 +3051,8 @@ function printDebugHelp(cliName: string): void {
     ],
     ["--browser-headless", "Launch Chrome in headless mode."],
     ["--browser-hide-window", "Hide the Chrome window (macOS headful only)."],
+    ["--browser-no-focus", "Keep Chrome in the background during launch, new tabs, and send."],
+    ["--no-browser-no-focus", "Let Chrome come to the front during launch, new tabs, and send."],
     ["--browser-keep-browser", "Leave Chrome running after completion."],
   ]);
   console.log("");

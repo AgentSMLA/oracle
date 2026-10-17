@@ -83,7 +83,13 @@ export async function openGeminiBrowserSession(
 
   if (!port) {
     log?.(`[gemini-web] Launching Chrome for ${purpose}.`);
-    launchedChrome = await launchChrome(resolvedConfig, profileDir, log ?? (() => {}));
+    // Gemini still opens its tab through /json/new, which brings Chrome forward anyway; keep the
+    // startup window so a failed tab open can still fall back to Chrome's default page.
+    launchedChrome = await launchChrome(
+      { ...resolvedConfig, noFocus: false },
+      profileDir,
+      log ?? (() => {}),
+    );
     port = launchedChrome.port;
     chromeWasLaunched = true;
     await writeDevToolsActivePort(profileDir, port);

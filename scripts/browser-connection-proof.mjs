@@ -6,16 +6,33 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const { Server: WebSocketServer } = createRequire(require.resolve("chrome-remote-interface"))("ws");
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  if (req.url === "/json/version") {
+    res.setHeader("content-type", "application/json");
+    res.end(
+      JSON.stringify({
+        webSocketDebuggerUrl: `ws://127.0.0.1:${server.address().port}/devtools/browser/proof`,
+      }),
+    );
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
 const wss = new WebSocketServer({ noServer: true });
 let handshakes = 0;
 let evaluations = 0;
+const createdTargets = [];
 server.on("upgrade", (req, socket, head) => {
   handshakes++;
   wss.handleUpgrade(req, socket, head, (ws) => {
     ws.on("message", (raw) => {
       const { id, method, params, sessionId } = JSON.parse(String(raw));
       let result = {};
+      if (method === "Target.createTarget") {
+        createdTargets.push(params);
+        result = { targetId: `background-${createdTargets.length}` };
+      }
       if (method === "Target.getTargets")
         result = { targetInfos: [{ targetId: "saved", type: "page" }] };
       if (method === "Target.attachToTarget") result = { sessionId: params.targetId };
@@ -43,10 +60,12 @@ const port = server.address().port;
 const moduleUrl = new URL("../dist/src/browser/chromeLifecycle.js", import.meta.url).href;
 const source = `
 import assert from 'node:assert/strict';
-const {listRemoteChromeTargets,connectToRemoteChromeTarget}=await import(${JSON.stringify(moduleUrl)});
+const {listRemoteChromeTargets,connectToRemoteChromeTarget,openBackgroundChromeWindow,createChromePageTarget}=await import(${JSON.stringify(moduleUrl)});
 const endpoint={host:'127.0.0.1',port:${port},browserWSEndpoint:'ws://127.0.0.1:${port}/devtools/browser/proof'};
 for(let n=0;n<3;n++) {
   await listRemoteChromeTargets(endpoint);
+  await openBackgroundChromeWindow(endpoint.host, endpoint.port, 'about:blank');
+  await createChromePageTarget(endpoint.port, () => {}, endpoint.host, {background: true});
   const page=await connectToRemoteChromeTarget(endpoint.host,endpoint.port,()=>{},{...endpoint,targetId:'saved'});
   const result=await page.client.Runtime.evaluate({expression:'synthetic delayed response'});
   assert.equal(result.result.value,'delayed-response');
@@ -70,9 +89,12 @@ try {
   const code = await new Promise((resolve) => child.on("exit", resolve));
   assert.equal(code, 0, output);
   assert.equal(evaluations, 3, "active socket must keep delayed commands alive");
+  assert.equal(createdTargets.length, 6);
+  assert.ok(createdTargets.every((target) => target.background === true));
+  assert.equal(createdTargets.filter((target) => target.newWindow === true).length, 3);
   assert.equal(handshakes, 1, "all steps must use one browser handshake");
   console.log(
-    "PASS: one WebSocket handshake, three complete multi-step operations, natural idle process exit",
+    "PASS: one WebSocket handshake, background run/cleanup targets, three complete multi-step operations, natural idle process exit",
   );
 } finally {
   clearTimeout(timeout);

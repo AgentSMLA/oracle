@@ -51,6 +51,8 @@ export interface BrowserExecutionResult {
   answerText: string;
   artifacts?: SessionArtifact[];
   savedFiles?: SavedBrowserFile[];
+  /** The no-focus setting a remote host ran with; local runs leave it unset. */
+  noFocus?: boolean;
 }
 
 interface RunBrowserSessionArgs {
@@ -444,6 +446,7 @@ async function executeAssembledBrowserSession({
     answerText,
     artifacts: savedArtifacts,
     savedFiles: browserResult.savedFiles,
+    noFocus: browserResult.noFocus,
   };
 }
 

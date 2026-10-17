@@ -364,3 +364,7 @@ These Vitest cases hit the real OpenAI API to exercise both transports:
 
 Skip these unless you're intentionally validating the production API; they are
 fully gated behind `ORACLE_LIVE_TEST=1` to avoid accidental CI runs.
+
+### Opt-in background browser input
+
+Run `node --import tsx scripts/browser-no-focus-proof.mjs` after installing development dependencies. It uses a disposable, signed-out Chrome profile and synthetic text/file inputs to compare default foreground behavior with `noFocus: true`, including the final-page cleanup replacement. On macOS, Peekaboo must be installed with a working native GUI bridge: the proof focuses Finder, samples the frontmost PID throughout launch, target creation, both trusted sends, and cleanup, and asserts that the opt-in run retains it. On Linux the proof runs headless and checks trusted submissions and cleanup; it does not claim native foreground-retention evidence. No provider login is used.
