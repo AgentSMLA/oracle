@@ -285,6 +285,80 @@ describe("ensurePromptReady", () => {
     await expect(ensurePromptReady(runtime, 5_000, logger)).resolves.toBeUndefined();
     expect(runtime.evaluate).toHaveBeenCalledTimes(3);
   });
+
+  const manualLoginLog = "Auth login page detected; waiting for manual login to complete...";
+
+  const locationRuntime = (href: string) => {
+    const evaluate = vi.fn(async ({ expression }: { expression: string }) => {
+      if (expression.includes("location.href")) {
+        return { result: { value: href } };
+      }
+      return { result: { value: false } };
+    });
+    return { evaluate } as unknown as ChromeClient["Runtime"];
+  };
+
+  const finishPromptWait = async (href: string) => {
+    vi.useFakeTimers();
+    try {
+      const pending = ensurePromptReady(locationRuntime(href), 0, logger);
+      const result = pending.then(
+        () => "resolved" as const,
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await result;
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
+  test.each([
+    "https://notauth.openai.com/",
+    "https://auth.openai.com.evil.test/",
+    "https://foo.auth.openai.com.evil.test/",
+    "https://evilauth.openai.com/session",
+    "https://auth.openai.com@notauth.openai.com/authorize",
+    "https://notauth.openai.com:8443/authorize",
+  ])("does not extend the prompt wait for lookalike auth host %s", async (href) => {
+    const outcome = await finishPromptWait(href);
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toMatch(/textarea did not appear/i);
+    expect(logger).not.toHaveBeenCalledWith(manualLoginLog);
+  });
+
+  test.each([
+    "https://auth.openai.com/authorize",
+    "https://login.auth.openai.com/authorize",
+    "https://Auth.OpenAI.com./authorize",
+    "https://chatgpt.com/log-in",
+    "https://notauth.openai.com@auth.openai.com/authorize",
+  ])("still waits for manual login on %s", async (href) => {
+    vi.useFakeTimers();
+    try {
+      const pending = ensurePromptReady(locationRuntime(href), 0, logger);
+      let settled = false;
+      const result = pending.then(
+        () => {
+          settled = true;
+          return "resolved" as const;
+        },
+        (error: unknown) => {
+          settled = true;
+          return error;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(logger).toHaveBeenCalledWith(manualLoginLog);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(59_000);
+      const outcome = await result;
+      expect(outcome).toBeInstanceOf(Error);
+      expect((outcome as Error).message).toMatch(/textarea did not appear/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("ensureChatMode", () => {
@@ -1842,6 +1916,47 @@ describe("waitForAssistantResponse", () => {
     }
   });
 
+  test("does not finish a stable action bar when the thinking read fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const answer = {
+        text: "The answer is still being reasoned about in the sidecar.",
+        html: "<p>The answer is still being reasoned about in the sidecar.</p>",
+        messageId: "mid",
+        turnId: "tid",
+      };
+      const evaluate = vi
+        .fn()
+        .mockImplementation(async (params: { expression?: string; awaitPromise?: boolean }) => {
+          if (params.awaitPromise) {
+            return { result: { type: "object", value: answer } };
+          }
+          const expression = String(params.expression ?? "");
+          if (expression.includes("extractAssistantTurn")) {
+            return { result: { value: answer } };
+          }
+          if (expression.includes("return readThinkingActivity()")) {
+            throw new Error("thinking evaluate failed");
+          }
+          if (expression.includes("Find the LAST assistant turn")) {
+            return { result: { value: true } };
+          }
+          return { result: { value: false } };
+        });
+
+      const promise = waitForAssistantResponse(
+        { evaluate } as unknown as ChromeClient["Runtime"],
+        6_000,
+        logger,
+      );
+      const assertion = expect(promise).rejects.toThrow(/refusing to finalize/i);
+      await vi.advanceTimersByTimeAsync(7_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("keeps a legitimate short completion after watchdog confirmation", async () => {
     vi.useFakeTimers();
     try {
@@ -1932,6 +2047,130 @@ describe("waitForAssistantResponse", () => {
     expect(result.text).toBe("Recovered assistant response.");
     expect(evaluate).toHaveBeenCalled();
   });
+
+  test("does not spend a second full timeout after the response observer times out", async () => {
+    vi.useFakeTimers();
+    try {
+      const evaluate = vi.fn().mockImplementation((params: { awaitPromise?: boolean }) => {
+        if (params?.awaitPromise) {
+          return new Promise((_resolve, reject) => {
+            setTimeout(() => reject(new Error("Response timeout")), 1_500);
+          });
+        }
+        return Promise.resolve({ result: { value: null } });
+      });
+      let outcome:
+        | { status: "pending" }
+        | { status: "rejected"; message: string }
+        | { status: "resolved" } = { status: "pending" };
+      const tracked = waitForAssistantResponse(
+        { evaluate } as unknown as ChromeClient["Runtime"],
+        2_000,
+        logger,
+      ).then(
+        () => {
+          outcome = { status: "resolved" };
+        },
+        (error: unknown) => {
+          outcome = {
+            status: "rejected",
+            message: error instanceof Error ? error.message : String(error),
+          };
+        },
+      );
+      await vi.advanceTimersByTimeAsync(2_600);
+      expect(outcome).toEqual({ status: "rejected", message: "Response timeout" });
+      await tracked;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("does not finish a streaming answer just because its html contains an estuary file URL", async () => {
+    vi.useFakeTimers();
+    try {
+      const streaming = {
+        text: "Here is the chart so far.",
+        html: '<p>Here is the chart so far.</p><img src="https://chatgpt.com/backend-api/estuary/content?id=file_abc">',
+        messageId: "mid",
+        turnId: "tid",
+      };
+      const evaluate = vi
+        .fn()
+        .mockImplementation(async (params: { expression?: string; awaitPromise?: boolean }) => {
+          if (params.awaitPromise) {
+            return { result: { type: "object", value: streaming } };
+          }
+          const expression = String(params.expression ?? "");
+          if (expression.includes("extractAssistantTurn")) {
+            return { result: { value: streaming } };
+          }
+          if (expression.includes("Find the LAST assistant turn")) {
+            return { result: { value: false } };
+          }
+          return { result: { value: false } };
+        });
+      let outcome: "pending" | "resolved" | "rejected" = "pending";
+      const tracked = waitForAssistantResponse(
+        { evaluate } as unknown as ChromeClient["Runtime"],
+        2_000,
+        logger,
+      ).then(
+        () => {
+          outcome = "resolved";
+        },
+        () => {
+          outcome = "rejected";
+        },
+      );
+      await vi.advanceTimersByTimeAsync(500);
+      expect(outcome).toBe("pending");
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(outcome).toBe("rejected");
+      await tracked;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test.each(["Generated image.", "Generated 3 images."])(
+    "still accepts an image-only extractor result %j without an action bar",
+    async (text) => {
+      vi.useFakeTimers();
+      try {
+        const imageOnly = {
+          text,
+          html: '<img src="https://chatgpt.com/backend-api/estuary/content?id=file_abc">',
+          messageId: "mid",
+          turnId: "tid",
+        };
+        const evaluate = vi
+          .fn()
+          .mockImplementation(async (params: { expression?: string; awaitPromise?: boolean }) => {
+            if (params.awaitPromise) {
+              return { result: { type: "object", value: imageOnly } };
+            }
+            const expression = String(params.expression ?? "");
+            if (expression.includes("extractAssistantTurn")) {
+              return { result: { value: imageOnly } };
+            }
+            if (expression.includes("Find the LAST assistant turn")) {
+              return { result: { value: false } };
+            }
+            return { result: { value: false } };
+          });
+        const promise = waitForAssistantResponse(
+          { evaluate } as unknown as ChromeClient["Runtime"],
+          5_000,
+          logger,
+        );
+        await vi.advanceTimersByTimeAsync(2_000);
+        await expect(promise).resolves.toMatchObject({ text });
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 });
 
 describe("composer attachment menu safety", () => {

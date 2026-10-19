@@ -775,7 +775,8 @@ async function currentUrl(Runtime: ChromeClient["Runtime"]): Promise<string | nu
 function isAuthLoginUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.includes("auth.openai.com")) {
+    const host = parsed.hostname.replace(/\.$/, "").toLowerCase();
+    if (host === "auth.openai.com" || host.endsWith(".auth.openai.com")) {
       return true;
     }
     return /^\/log-?in/i.test(parsed.pathname);

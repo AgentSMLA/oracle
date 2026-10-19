@@ -9,6 +9,7 @@ import { logDomFailure } from "../domDebug.js";
 import { BrowserAutomationError } from "../../oracle/errors.js";
 import { transferAttachmentViaDataTransfer } from "./attachmentDataTransfer.js";
 import { buildAttachmentProgressExpression } from "./attachmentProgress.js";
+import { buildActiveComposerRootExpression } from "./composerRoot.js";
 import {
   assertComposerPlusStayedInPlace,
   assertComposerNavigationSnapshot,
@@ -1375,62 +1376,7 @@ export async function clearComposerAttachments(
   const deadline = Date.now() + Math.max(0, timeoutMs);
   const expression = `(() => {
     ${buildAttachmentEvidenceExpression([], "clear")};
-    const promptSelectors = ${JSON.stringify(INPUT_SELECTORS)};
-    const sendSelectors = ${JSON.stringify(SEND_BUTTON_SELECTORS)};
-    const findPromptNode = () => {
-      for (const selector of promptSelectors) {
-        const nodes = Array.from(document.querySelectorAll(selector));
-        for (const node of nodes) {
-          if (!(node instanceof HTMLElement)) continue;
-          const rect = node.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) return node;
-        }
-      }
-      for (const selector of promptSelectors) {
-        const node = document.querySelector(selector);
-        if (node) return node;
-      }
-      return null;
-    };
-    const attachmentSelectors = [
-      'input[type="file"]',
-      '[data-testid*="attachment"]',
-      '[data-testid*="upload"]',
-      '[aria-label*="Remove"]',
-      '[aria-label*="remove"]',
-    ];
-    const locateComposerRoot = () => {
-      const promptNode = findPromptNode();
-      if (promptNode) {
-        const initial =
-          promptNode.closest('[data-testid*="composer"]') ??
-          promptNode.closest('form') ??
-          promptNode.parentElement ??
-          document.body;
-        let current = initial;
-        let fallback = initial;
-        while (current && current !== document.body) {
-          const hasSend = sendSelectors.some((selector) => current.querySelector(selector));
-          if (hasSend) {
-            fallback = current;
-            const hasAttachment = attachmentSelectors.some((selector) => current.querySelector(selector));
-            if (hasAttachment) {
-              return current;
-            }
-          }
-          current = current.parentElement;
-        }
-        return fallback ?? initial;
-      }
-      return document.querySelector('form') ?? document.body;
-    };
-    const root = locateComposerRoot();
-    const scope = (() => {
-      if (!root) return document.body;
-      const parent = root.parentElement;
-      const parentHasSend = parent && sendSelectors.some((selector) => parent.querySelector(selector));
-      return parentHasSend ? parent : root;
-    })();
+    const scope = ${buildActiveComposerRootExpression()};
     const removeSelectors = [
       '[aria-label="Remove file"]',
       'button[aria-label="Remove file"]',
@@ -1438,14 +1384,26 @@ export async function clearComposerAttachments(
       '[aria-label*="remove file"]',
       '[data-testid*="remove-attachment"]',
       '[data-testid*="attachment-remove"]',
+      'button[aria-label$=" を削除"]',
     ];
     const visible = (el) => {
       if (!(el instanceof HTMLElement)) return false;
       const rect = el.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     };
+    // Current Japanese cards have no test ID. Accept their removal button only
+    // with the same card scoping the receipt scanner uses, so unrelated
+    // "... を削除" controls (history, drafts) are never clicked.
+    const isRemoveControl = (el) => {
+      if (!el.matches('button[aria-label$=" を削除"]')) return true;
+      const label = el.getAttribute('aria-label') ?? '';
+      return (
+        /^.+ を削除$/.test(label) &&
+        Boolean(el.closest('[class~="group/composer-attachment"]') && el.closest('[data-composer-attachments]'))
+      );
+    };
     const removeButtons = scope
-      ? Array.from(scope.querySelectorAll(removeSelectors.join(','))).filter(visible)
+      ? Array.from(scope.querySelectorAll(removeSelectors.join(','))).filter(visible).filter(isRemoveControl)
       : [];
     for (const button of removeButtons.slice(0, 20)) {
       try {

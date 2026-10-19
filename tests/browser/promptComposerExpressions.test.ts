@@ -28,7 +28,12 @@ describe("prompt composer attachment expressions", () => {
       new FakeElement("form", { "data-testid": "composer" }, [
         new FakeElement("button", { "aria-label": "Remove first-image.jpg" }),
         new FakeElement("button", { "aria-label": "Remove second-image.png" }),
-        new FakeElement("div", { contenteditable: "true" }, [], "Read both images."),
+        new FakeElement(
+          "div",
+          { id: "prompt-textarea", contenteditable: "true" },
+          [],
+          "Read both images.",
+        ),
         new FakeElement("button", { type: "submit", "aria-label": "Send" }),
       ]),
     ]);
@@ -39,7 +44,12 @@ describe("prompt composer attachment expressions", () => {
     const document = new FakeDocument([
       new FakeElement("form", { "data-testid": "composer" }, [
         new FakeElement("button", { "aria-label": "Remove unrelated.jpg" }),
-        new FakeElement("div", { contenteditable: "true" }, [], "Review missing.jpg"),
+        new FakeElement(
+          "div",
+          { id: "prompt-textarea", contenteditable: "true" },
+          [],
+          "Review missing.jpg",
+        ),
         new FakeElement("button", { type: "submit", "aria-label": "Send" }),
       ]),
     ]);
@@ -51,11 +61,17 @@ describe("prompt composer attachment expressions", () => {
     (attached) => {
       const document = new FakeDocument([
         new FakeElement("form", {}, [
+          new FakeElement("textarea", { id: "prompt-textarea" }),
           new FakeElement("div", {}, [
             ...(attached ? [new FakeElement("span", {}, [], "paper.txt")] : []),
             new FakeElement("button", { "aria-label": "Remove attachment" }),
           ]),
-          new FakeElement("div", { contenteditable: "true" }, [], "Read paper.txt"),
+          new FakeElement(
+            "div",
+            { id: "prompt-textarea", contenteditable: "true" },
+            [],
+            "Read paper.txt",
+          ),
           new FakeElement("button", { type: "submit", "aria-label": "Send" }),
         ]),
       ]);
@@ -65,8 +81,6 @@ describe("prompt composer attachment expressions", () => {
 
   test("attachment ready check does not match prompt text", () => {
     const expression = buildAttachmentReadyExpressionForTest(["oracle-attach-verify.txt"]);
-    expect(expression).toContain("closestComposerRoot(sendButton)");
-    expect(expression).toContain("firstComposerRoot()");
     expect(expression).not.toContain("document.querySelector('[data-testid*=\"composer\"]') ||");
     expect(expression).toContain("attachmentRoots");
     expect(expression).toContain('input[type="file"]');
@@ -100,6 +114,7 @@ describe("prompt composer attachment expressions", () => {
     const fileName = "oracle-diagnostic-unique-20260521.txt";
     const document = new FakeDocument([
       new FakeElement("form", {}, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("button", { "data-testid": "composer-plus-btn" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], fileName),
@@ -126,6 +141,7 @@ describe("prompt composer attachment expressions", () => {
     const document = new FakeDocument([
       new FakeElement("form", {}, [], "Search chats"),
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], fileName),
           new FakeElement("button", { "aria-label": `Remove file 1: ${fileName}` }),
@@ -140,11 +156,13 @@ describe("prompt composer attachment expressions", () => {
     const fileName = "oracle-diagnostic-unique-20260521.txt";
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], fileName),
           new FakeElement("button", { "aria-label": `Remove file 1: ${fileName}` }),
         ]),
         new FakeElement("form", {}, [
+          new FakeElement("textarea", { id: "prompt-textarea" }),
           new FakeElement("button", {
             "aria-label": "Send prompt",
             "data-testid": "send-button",
@@ -160,6 +178,7 @@ describe("prompt composer attachment expressions", () => {
     const fileName = "oracle-diagnostic-unique-20260521.txt";
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], fileName),
           new FakeElement("button", { "aria-label": `Remove file 1: ${fileName}` }),
@@ -179,6 +198,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check tolerates duplicate-renamed chips", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "README(1).md"),
           new FakeElement("button", { "aria-label": "Remove file 1: README(1).md" }),
@@ -201,6 +221,7 @@ describe("prompt composer attachment expressions", () => {
   ])("attachment ready check matches %s to %s", (expectedName, actualName) => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], actualName),
           new FakeElement("button", { "aria-label": `Remove file 1: ${actualName}` }),
@@ -222,6 +243,7 @@ describe("prompt composer attachment expressions", () => {
   ])("attachment ready check does not match 01.jpg to %s", (actualName) => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], actualName),
           new FakeElement("button", { "aria-label": `Remove file 1: ${actualName}` }),
@@ -237,6 +259,7 @@ describe("prompt composer attachment expressions", () => {
     (actualName) => {
       const document = new FakeDocument([
         new FakeElement("div", { "data-testid": "unified-composer" }, [
+          new FakeElement("textarea", { id: "prompt-textarea" }),
           new FakeElement("div", { "data-testid": "attachment-chip" }, [
             new FakeElement("span", {}, [], actualName),
             new FakeElement("button", { "aria-label": `Remove file 1: ${actualName}` }),
@@ -250,6 +273,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check accepts generated bundle chips that expose only the bundle stem", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { role: "group", "aria-label": "attachments-bundle" }, [
           new FakeElement("span", {}, [], "Document"),
         ]),
@@ -267,6 +291,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check keeps stem-only fallback off for user bundle-named files", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { role: "group", "aria-label": "attachments-bundle" }, [
           new FakeElement("span", {}, [], "Document"),
           new FakeElement("button", { "aria-label": "Remove file 1" }),
@@ -280,6 +305,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check accepts duplicate-renamed generated bundle chips", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "attachments-bundle(13).txt"),
           new FakeElement("button", { "aria-label": "Remove file 1: attachments-bundle(13).txt" }),
@@ -298,6 +324,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check rejects duplicate-renamed generated bundle chips with the wrong extension", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "attachments-bundle(13).md"),
           new FakeElement("button", { "aria-label": "Remove file 1: attachments-bundle(13).md" }),
@@ -316,6 +343,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check accepts generated zip bundle chips that expose only the bundle stem", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "attachments-bundle"),
         ]),
@@ -333,6 +361,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not use stem-only fallback for non-bundle files", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "README"),
         ]),
@@ -345,6 +374,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not match generated bundle stem inside another filename", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "not-attachments-bundle.txt"),
         ]),
@@ -362,6 +392,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not match generated bundle stem with a different extension", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "attachments-bundle.md"),
         ]),
@@ -379,6 +410,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not let one duplicate-renamed chip satisfy same-stem files", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "README(1).md"),
           new FakeElement("button", { "aria-label": "Remove file 1: README(1).md" }),
@@ -392,6 +424,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not match extension prefixes in duplicate-renamed chips", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "README(1).mdx"),
           new FakeElement("button", { "aria-label": "Remove file 1: README(1).mdx" }),
@@ -405,6 +438,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check does not match extension prefixes in visible chip names", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "README.mdx"),
           new FakeElement("button", { "aria-label": "Remove file 1: README.mdx" }),
@@ -418,6 +452,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready rejects unnamed controls without per-file upload evidence", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-list" }, [
           new FakeElement("div", { "data-testid": "attachment-chip" }, [
             new FakeElement("button", { "aria-label": "Remove file 1" }),
@@ -435,6 +470,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready rejects generic remove controls without upload evidence", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("button", { "aria-label": "Remove" }),
         ]),
@@ -447,6 +483,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready requires evidence for the hidden file in a mixed set", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "one.txt"),
           new FakeElement("button", { "aria-label": "Remove file 1: one.txt" }),
@@ -463,6 +500,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready cannot use prompt text to identify an unnamed attachment", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement(
           "div",
           { id: "prompt-textarea", contenteditable: "true", role: "textbox" },
@@ -481,6 +519,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready cannot use a size label to identify an unnamed attachment", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "1.2 MB"),
           new FakeElement("button", { "aria-label": "Remove file 1" }),
@@ -494,6 +533,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready count fallback ignores unrelated remove controls", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("button", { "aria-label": "Remove item" }),
       ]),
     ]);
@@ -504,6 +544,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check tolerates ellipsized chip names", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "paper1…v3"),
           new FakeElement("button", { "aria-label": "Remove file 1: paper1…v3" }),
@@ -517,6 +558,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check tolerates ellipsized chip names with extensions", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "paper1…v3.md"),
           new FakeElement("button", { "aria-label": "Remove file 1: paper1…v3.md" }),
@@ -530,6 +572,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check tolerates ellipsized chip names with spaced prefixes", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "my paper…v3.md"),
           new FakeElement("button", { "aria-label": "Remove file 1: my paper…v3.md" }),
@@ -543,6 +586,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check rejects ambiguous ellipsis placeholders", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "...md"),
           new FakeElement("button", { "aria-label": "Remove file 1: ...md" }),
@@ -556,6 +600,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check rejects unrelated ellipsized chip names", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "ape…md"),
           new FakeElement("button", { "aria-label": "Remove file 1: ape…md" }),
@@ -569,6 +614,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check rejects ambiguous short ellipsized prefixes", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "a…md"),
           new FakeElement("button", { "aria-label": "Remove file 1: a…md" }),
@@ -582,6 +628,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready check accepts short ellipsized prefixes with strong suffixes", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "qa…v1.md"),
           new FakeElement("button", { "aria-label": "Remove file 1: qa…v1.md" }),
@@ -595,6 +642,7 @@ describe("prompt composer attachment expressions", () => {
   test("attachment ready requires upload evidence for a prefix-only truncated label", () => {
     const document = new FakeDocument([
       new FakeElement("div", { "data-testid": "unified-composer" }, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("div", { "data-testid": "attachment-chip" }, [
           new FakeElement("span", {}, [], "paper1…"),
           new FakeElement("button", { "aria-label": "Remove file 1" }),
@@ -609,6 +657,7 @@ describe("prompt composer attachment expressions", () => {
     const fileName = "oracle-diagnostic-unique-20260521.txt";
     const document = new FakeDocument([
       new FakeElement("form", {}, [
+        new FakeElement("textarea", { id: "prompt-textarea" }),
         new FakeElement("button", { "data-testid": "composer-plus-btn" }),
         new FakeElement(
           "div",

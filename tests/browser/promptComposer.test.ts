@@ -1,3 +1,4 @@
+import { FakeDocument, FakeElement, FakeInputElement } from "./domFixture.js";
 import { describe, expect, test, vi } from "vitest";
 import {
   __test__ as promptComposer,
@@ -13,64 +14,24 @@ import {
 } from "../../src/browser/constants.js";
 
 const evaluateAttachmentReady = (expectedName: string, visibleName: string): boolean => {
-  class FakeElement {
-    tagName = "DIV";
-    parentElement: FakeElement | null = null;
-
-    constructor(
-      private readonly text = "",
-      private readonly attributes: Record<string, string> = {},
-    ) {}
-
-    get innerText() {
-      return this.text;
-    }
-
-    get textContent() {
-      return this.text;
-    }
-
-    getAttribute(name: string) {
-      return this.attributes[name] ?? null;
-    }
-
-    querySelectorAll(_selector: string): FakeElement[] {
-      return [];
-    }
-
-    closest(_selector: string): FakeElement | null {
-      return null;
-    }
-  }
-
-  class FakeInputElement extends FakeElement {
-    files: File[] = [];
-  }
-
-  const chip = new FakeElement(visibleName, {
-    "aria-label": `Remove file 1: ${visibleName}`,
-    "data-testid": "file-chip",
-  });
-  const root = new FakeElement();
-  root.querySelectorAll = (selector: string) => {
-    if (selector === 'input[type="file"]') return [];
-    if (selector.includes('[data-testid*="chip"]')) return [chip];
-    if (selector.includes('[aria-label*="Remove" i]')) return [chip];
-    return [];
-  };
-  const document = {
-    querySelector: () => null,
-    querySelectorAll: () => [],
-    body: root,
-  };
-  const expression = buildAttachmentReadyExpressionForTest([expectedName]);
-  const evaluate = new Function(
-    "document",
-    "HTMLElement",
-    "HTMLInputElement",
-    `return ${expression};`,
+  const document = new FakeDocument([
+    new FakeElement("form", { "data-testid": "composer" }, [
+      new FakeElement("textarea", { id: "prompt-textarea" }),
+      new FakeElement("div", { "data-testid": "file-chip" }, [
+        new FakeElement("span", {}, [], visibleName),
+        new FakeElement("button", { "aria-label": `Remove file 1: ${visibleName}` }),
+      ]),
+      new FakeElement("button", { "data-testid": "send-button" }),
+    ]),
+  ]);
+  return Boolean(
+    new Function(
+      "document",
+      "HTMLElement",
+      "HTMLInputElement",
+      `return ${buildAttachmentReadyExpressionForTest([expectedName])};`,
+    )(document, FakeElement, FakeInputElement),
   );
-  return Boolean(evaluate(document, FakeElement, FakeInputElement));
 };
 
 describe("promptComposer", () => {
@@ -618,7 +579,7 @@ describe("promptComposer", () => {
           if (expression.includes("return !selectors.some")) {
             return { result: { value: true } };
           }
-          if (expression.includes("send-button") && expression.includes("const selectors")) {
+          if (expression.includes("send-button") && expression.includes("const findButton =")) {
             events.push("focusSendButton");
             return { result: { value: { status: "focused" } } };
           }
@@ -704,7 +665,7 @@ describe("promptComposer", () => {
           if (expression.includes("composer-plus-btn")) {
             return { result: { value: { status: "closed" } } };
           }
-          if (expression.includes("send-button") && expression.includes("const selectors")) {
+          if (expression.includes("send-button") && expression.includes("const findButton =")) {
             return { result: { value: { status: "focused" } } };
           }
           if (expression.includes("currentUrl: location.href")) {
@@ -777,7 +738,7 @@ describe("promptComposer", () => {
           if (expression.includes("composer-plus-btn")) {
             return { result: { value: { status: "closed" } } };
           }
-          if (expression.includes("send-button") && expression.includes("const selectors")) {
+          if (expression.includes("send-button") && expression.includes("const findButton =")) {
             return { result: { value: { status: "focused" } } };
           }
           if (expression.includes("currentUrl: location.href")) {
@@ -840,7 +801,7 @@ describe("promptComposer", () => {
           if (expression.includes("composer-plus-btn")) {
             return { result: { value: { status: "closed" } } };
           }
-          if (expression.includes("send-button") && expression.includes("const selectors")) {
+          if (expression.includes("send-button") && expression.includes("const findButton =")) {
             return { result: { value: { status: "absent" } } };
           }
           if (expression.includes("dispatchClickSequence")) {
