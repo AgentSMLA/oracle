@@ -41,7 +41,7 @@ jobs:
 
   build:
     if: inputs.diagnose_npm_oidc != true
-    runs-on: macos-15
+    runs-on: xcode-27
     permissions:
       actions: read
       contents: read
@@ -100,7 +100,7 @@ jobs:
           cd release-assets
           shasum -a 1 "oracle-${VERSION}.tgz" > "oracle-${VERSION}.tgz.sha1"
           shasum -a 256 "oracle-${VERSION}.tgz" > "oracle-${VERSION}.tgz.sha256"
-          shasum -a 256 *.tgz > SHA256SUMS
+          shasum -a 256 -- *.tgz > SHA256SUMS
           shasum -a 256 -c SHA256SUMS
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -138,9 +138,9 @@ jobs:
           set -euo pipefail
           npm install --global npm@11.20.0
           version=${TAG#v}
-          existing=$(npm view "$PACKAGE_NAME@$version" version --json 2>"$RUNNER_TEMP/npm-view.err") && {
+          if npm view "$PACKAGE_NAME@$version" version --json >/dev/null 2>"$RUNNER_TEMP/npm-view.err"; then
             echo "Version already exists; refusing to publish" >&2; exit 1;
-          }
+          fi
           grep -q E404 "$RUNNER_TEMP/npm-view.err"
           cd payload/release-assets
           sha256sum -c SHA256SUMS
@@ -156,7 +156,7 @@ jobs:
           env -u NPM_TOKEN -u NODE_AUTH_TOKEN npm publish "oracle-$version.tgz" --access public --provenance --tag "$dist_tag"
           expected="sha512-$(openssl dgst -sha512 -binary "oracle-$version.tgz" | base64 -w0)"
           actual=
-          for attempt in {1..120}; do
+          for _attempt in {1..120}; do
             if actual=$(npm view "$PACKAGE_NAME@$version" dist.integrity 2>"$RUNNER_TEMP/npm-propagation.err"); then
               [[ -z "$actual" ]] || break
             else
