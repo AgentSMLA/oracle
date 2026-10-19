@@ -9,7 +9,7 @@
  * Does not require ChatGPT login.
  */
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -195,6 +195,13 @@ async function run() {
     console.log("\nPROOF_OK both disconnect outcomes demonstrated against real Chrome CDP");
   } catch (error) {
     console.error("\nPROOF_FAILED", error);
+    if (!port) {
+      // This fresh, synthetic profile has not visited a provider or loaded credentials.
+      const stderr = await readFile(path.join(userDataDir, "chrome-err.log"), "utf8").catch(
+        () => "",
+      );
+      if (stderr) console.error("Chrome startup stderr:\n" + stderr.slice(-8000));
+    }
     process.exitCode = 1;
   } finally {
     try {
