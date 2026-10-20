@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dependencies: update the OpenAI SDK to 7.38.0 and GPT tokenization to 4.1.0 after the two-day cooldown; retain Node >=24 and Undici 7.
 - Browser: recognize Chinese completion announcements and localized controls beside search-unit replies while preserving current-turn and code-block guards; thanks @oraclexing.
 - Browser: keep incomplete answers pending when thinking-state reads fail, file URLs appear in streaming text, or Deep Research still shows Stop; preserve the remaining timeout during observer recovery and reject unowned completed research frames; thanks @SebTardif.
 - Browser: support Japanese attachment cards, collision-renamed upload receipts, and the Japanese send control; scope cleanup, receipts, readiness, and sending to the active composer so sibling forms and attachments remain untouched; thanks @kiyo-e.
