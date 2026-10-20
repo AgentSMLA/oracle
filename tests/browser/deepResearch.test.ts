@@ -27,6 +27,7 @@ import {
   checkDeepResearchStatus,
 } from "../../src/browser/actions/deepResearch.js";
 import type { BrowserLogger } from "../../src/browser/types.js";
+import { FakeDocument, FakeElement } from "./domFixture.js";
 
 function createMockRuntime() {
   return {
@@ -2311,6 +2312,59 @@ describe("waitForDeepResearchCompletion", () => {
     await expect(
       waitForDeepResearchCompletion(mockRuntime as never, mockLogger, 100),
     ).rejects.toThrow(/did not complete/);
+  });
+});
+
+describe.each([
+  ["status", buildDeepResearchStatusExpressionForTest, "completed"],
+  ["completion poll", buildDeepResearchCompletionPollExpressionForTest, "finished"],
+] as const)("localized Deep Research %s controls", (_name, buildExpression, completionKey) => {
+  function evaluateControl(control: FakeElement) {
+    const document = new FakeDocument([
+      new FakeElement("div", { "data-talvt-turn-state": "streaming" }, [
+        new FakeElement("div", { "data-content-search-unit-key": "synthetic:assistant" }, [
+          new FakeElement(
+            "p",
+            {},
+            [],
+            "A synthetic research response long enough to pass the minimum text-length gate.",
+          ),
+          control,
+        ]),
+      ]),
+    ]);
+    return new vm.Script(buildExpression()).runInNewContext({ document }) as Record<
+      string,
+      boolean | number
+    >;
+  }
+
+  describe.each(["Copy", "コピーする", "复制"])("%s", (label) => {
+    it.each([
+      ["pre", {}],
+      ["code", {}],
+      ["div", { "data-user-message-bubble": "" }],
+      ["div", { "data-message-author-role": "user" }],
+      ["div", { "data-content-search-unit-key": "synthetic:user" }],
+      ["div", { "data-chatgpt-search-unit-key": "synthetic:user" }],
+    ] as const)("ignores a copy control inside %s %j without Stop", (tag, attributes) => {
+      const result = evaluateControl(
+        new FakeElement(tag, attributes, [
+          new FakeElement("span", {}, [new FakeElement("button", { "aria-label": label })]),
+        ]),
+      );
+
+      expect(result.textLength).toBeGreaterThanOrEqual(40);
+      expect(result[completionKey]).toBe(false);
+    });
+
+    it("recognizes a turn-level copy control without the legacy action-bar class", () => {
+      const result = evaluateControl(
+        new FakeElement("div", {}, [new FakeElement("button", { "aria-label": label })]),
+      );
+
+      expect(result[completionKey]).toBe(true);
+    });
   });
 });
 

@@ -50,7 +50,7 @@ function makePage(initialComplete: boolean, announcement = "Response complete") 
 }
 
 describe("current-turn completion announcement", () => {
-  test.each(["Response complete", "回答が完了しました"])(
+  test.each(["Response complete", "回答が完了しました", "回答已完成"])(
     "ignores an earlier %s status while a new answer is incomplete",
     (announcement) => {
       const page = makePage(true, announcement);
@@ -65,7 +65,7 @@ describe("current-turn completion announcement", () => {
   );
 
   // ja-JP announces 回答が完了しました (observed 2026-10-03 on the Chat/Work layout).
-  test.each(["Response complete", "回答が完了しました"])(
+  test.each(["Response complete", "回答が完了しました", "回答已完成"])(
     "records a fast answer that completes before polling begins (%s)",
     (announcement) => {
       const page = makePage(false, announcement);
