@@ -8,6 +8,7 @@
 
 - Browser: add opt-in `--browser-no-focus` / `browser.noFocus` for background ChatGPT runs, attachment submission, and recovery; preserve foreground defaults, retain shared browser transports, and bring Chrome forward when sign-in or a challenge requires input; thanks @postoso and @Eotel.
 - Browser: recognize Chinese completion announcements and localized controls beside search-unit replies while preserving current-turn and code-block guards; thanks @oraclexing.
+- Browser: retry one unavailable process-identity query before final shared Chrome cleanup, while continuing to refuse termination for mismatched or unverifiable processes.
 - Browser: attach and harvest only HTTPS tabs on the exact ChatGPT hosts, rejecting lookalike hosts and unrelated pages titled ChatGPT; thanks @SebTardif.
 - Serve: reject oversized remote run bodies with HTTP 413 before starting a browser run, including unfinished chunked uploads; thanks @SebTardif.
 - Dependencies: update the OpenAI SDK to 7.38.0 and GPT tokenization to 4.1.0 after the two-day cooldown; retain Node >=24 and Undici 7.
