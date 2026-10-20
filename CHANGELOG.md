@@ -2,20 +2,22 @@
 
 ## Unreleased
 
-- Dependencies: update the OpenAI SDK to 7.38.0 and GPT tokenization to 4.1.0 after the two-day cooldown; retain Node >=24 and Undici 7.
+## 0.22.0 - 2026-10-20
+
+**Highlights:** Run ChatGPT in the background with opt-in no-focus mode, capture localized replies reliably, and harden browser-host and remote-request security.
+
+- Browser: add opt-in `--browser-no-focus` / `browser.noFocus` for background ChatGPT runs, attachment submission, and recovery; preserve foreground defaults, retain shared browser transports, and bring Chrome forward when sign-in or a challenge requires input; thanks @postoso and @Eotel.
 - Browser: recognize Chinese completion announcements and localized controls beside search-unit replies while preserving current-turn and code-block guards; thanks @oraclexing.
+- Browser: retry one unavailable process-identity query before final shared Chrome cleanup, while continuing to refuse termination for mismatched or unverifiable processes.
+- Browser: attach and harvest only HTTPS tabs on the exact ChatGPT hosts, rejecting lookalike hosts and unrelated pages titled ChatGPT; thanks @SebTardif.
+- Serve: reject oversized remote run bodies with HTTP 413 before starting a browser run, including unfinished chunked uploads; thanks @SebTardif.
+- Dependencies: update the OpenAI SDK to 7.38.0 and GPT tokenization to 4.1.0 after the two-day cooldown; retain Node >=24 and Undici 7.
 - Browser: keep incomplete answers pending when thinking-state reads fail, file URLs appear in streaming text, or Deep Research still shows Stop; preserve the remaining timeout during observer recovery and reject unowned completed research frames; thanks @SebTardif.
 - Browser: support Japanese attachment cards, collision-renamed upload receipts, and the Japanese send control; scope cleanup, receipts, readiness, and sending to the active composer so sibling forms and attachments remain untouched; thanks @kiyo-e.
 - Browser: avoid extending failed prompt waits on lookalike OpenAI auth hosts while preserving manual-login waits on the real auth domain; thanks @SebTardif.
 - Dependencies: refresh Gemini and OpenAI SDKs, GPT tokenization, Vitest/coverage, and DevTools protocol within the two-day cooldown; retain Node >=24 and Undici 7.
-
 - CI: use Xcode 27 runners for macOS tests and release packaging while retaining the notifier's explicit macOS 13 deployment target.
-
-- Browser: add opt-in `--browser-no-focus` / `browser.noFocus` for background ChatGPT runs, attachment submission, and recovery; preserve foreground defaults, retain shared browser transports, and bring Chrome forward when sign-in or a challenge requires input; thanks @postoso and @Eotel.
-
-- Browser: attach and harvest only HTTPS tabs on the exact ChatGPT hosts, rejecting lookalike hosts and unrelated pages titled ChatGPT; thanks @SebTardif.
 - Dependencies: refresh the OpenAI SDK, dotenv, qs, Puppeteer and DevTools types within the two-day cooldown, plus CI and release action pins; retain Node >=24 and Undici 7.
-- Serve: reject oversized remote run bodies with HTTP 413 before starting a browser run, including unfinished chunked uploads; thanks @SebTardif.
 
 ## 0.21.6 - 2026-10-16
 

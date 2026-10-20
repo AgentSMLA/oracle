@@ -135,7 +135,16 @@ export async function terminateRecordedChromeForProfile(
   if (!pid || !isProcessAlive(pid)) {
     return false;
   }
-  const command = await readProcessCommand(pid);
+  let command = await readProcessCommand(pid);
+  if (command === null && isProcessAlive(pid)) {
+    // A failed process query is not evidence of a different owner; retry the read once.
+    logger?.(`Could not read Chrome pid ${pid} command; retrying identity probe once.`);
+    command = await readProcessCommand(pid);
+  }
+  if (command === null) {
+    logger?.(`Could not verify Chrome pid ${pid} command; skipping termination.`);
+    return false;
+  }
   if (!isChromeCommandForUserDataDir(command, userDataDir)) {
     logger?.(`Recorded Chrome pid ${pid} does not match ${userDataDir}; skipping termination`);
     return false;
