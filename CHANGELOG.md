@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Browser: accept confirmed ChatGPT sessions with a visible authenticated app despite stray login controls, while preserving sign-out and auth-page checks.
+
 ## 0.22.0 - 2026-10-20
 
 **Highlights:** Run ChatGPT in the background with opt-in no-focus mode, capture localized replies reliably, and harden browser-host and remote-request security.
