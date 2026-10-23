@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## 0.22.1 - 2026-10-23
+
+**Highlights:** Keep authenticated ChatGPT sessions working despite stray login controls and restore compatible terminal progress updates.
+
+- Browser: accept confirmed ChatGPT sessions with a visible authenticated app despite stray login controls, while preserving sign-out and auth-page checks.
 - CLI: update Markdansi to 0.3.7 and restore compatible updates after its terminal OSC progress replay fix.
 - Dependencies: refresh OpenAI, Inquirer, Puppeteer/DevTools types, and formatter/linter tooling after the two-day cooldown; retain Node >=24 and Undici 7.
-- Browser: accept confirmed ChatGPT sessions with a visible authenticated app despite stray login controls, while preserving sign-out and auth-page checks.
 
 ## 0.22.0 - 2026-10-20
 
