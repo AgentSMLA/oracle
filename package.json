@@ -72,7 +72,7 @@
     "inquirer": "14.2.4",
     "json5": "^2.2.3",
     "kleur": "^4.1.5",
-    "markdansi": "0.3.5",
+    "markdansi": "^0.3.7",
     "openai": "^7.39.0",
     "osc-progress": "^0.3.4",
     "qs": "^6.16.1",
