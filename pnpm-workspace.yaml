@@ -11,3 +11,6 @@ allowBuilds:
   esbuild: true
 
 minimumReleaseAge: 2880
+# Adopt the OSC progress replay fix without relaxing the cooldown for future releases.
+minimumReleaseAgeExclude:
+  - markdansi@0.3.7
