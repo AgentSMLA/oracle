@@ -1401,7 +1401,26 @@ describe("ensureLoggedIn", () => {
     }
   });
 
-  test("keeps auth pages and visible login CTAs authoritative", async () => {
+  test.each(["profile", "history"] as const)(
+    "accepts a confirmed session with a %s affordance despite an unrelated login CTA",
+    async (appSignal) => {
+      await expect(
+        runLoginProbeForLabels(["Log in"], {
+          composerVisible: true,
+          appSignal,
+        }),
+      ).resolves.toMatchObject({
+        ok: true,
+        status: 200,
+        sessionAuthenticated: true,
+        sessionResolved: true,
+        domLoginCta: true,
+        appAuthenticated: true,
+      });
+    },
+  );
+
+  test("keeps auth pages authoritative even with a confirmed session and app DOM", async () => {
     await expect(
       runLoginProbeForLabels([], {
         pathname: "/auth/login",
@@ -1413,9 +1432,16 @@ describe("ensureLoggedIn", () => {
       onAuthPage: true,
       appAuthenticated: true,
     });
+  });
 
+  test.each([
+    { sessionBody: {} },
+    { sessionStatus: 503, backendStatus: 200 },
+    { sessionStatus: 503, backendStatus: 401 },
+  ])("keeps a login CTA authoritative without a confirmed session: %j", async (auth) => {
     await expect(
       runLoginProbeForLabels(["Log in"], {
+        ...auth,
         composerVisible: true,
         appSignal: "history",
       }),
