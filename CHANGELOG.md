@@ -10,6 +10,8 @@
 - CLI: update Markdansi to 0.3.7 and restore compatible updates after its terminal OSC progress replay fix.
 - Dependencies: refresh OpenAI, Inquirer, Puppeteer/DevTools types, and formatter/linter tooling after the two-day cooldown; retain Node >=24 and Undici 7.
 
+[npm](https://www.npmjs.com/package/@steipete/oracle/v/0.22.1) · [Registry tarball](https://registry.npmjs.org/@steipete/oracle/-/oracle-0.22.1.tgz) · [Integrity metadata](https://registry.npmjs.org/@steipete%2foracle/0.22.1) · [CI proof](https://github.com/steipete/oracle/actions/runs/40015517941)
+
 ## 0.22.0 - 2026-10-20
 
 **Highlights:** Run ChatGPT in the background with opt-in no-focus mode, capture localized replies reliably, and harden browser-host and remote-request security.
