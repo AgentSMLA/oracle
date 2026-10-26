@@ -2,7 +2,7 @@ overrides:
   devtools-protocol: 0.0.1724436
   hono: 4.13.13
   "@hono/node-server": 2.1.5
-  fast-uri: 4.2.2
+  fast-uri: 4.2.3
   protobufjs: 8.8.1
   vite: 8.3.4
 
