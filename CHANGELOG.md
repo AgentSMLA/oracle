@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Dependencies: update Undici to 7.30.1 for upstream security fixes and refresh OpenAI, Google GenAI, MCP, Puppeteer, and DevTools types after the two-day cooldown; retain Node >=24.
+- Browser: retry a failed ChatGPT page load once, distinguish unloaded pages from signed-out sessions, and print sanitized login diagnostics; thanks @postoso.
 
 ## 0.22.1 - 2026-10-23
 
