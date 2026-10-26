@@ -147,3 +147,5 @@ an authenticated upstream request and delays its reply until the lifecycle
 assertions finish. This does not exercise signed-in browser execution.
 
 For recognized GPT model IDs, Oracle chooses the corresponding ChatGPT model label automatically; `browserModelLabel` supplies a label for custom model IDs and does not override a recognized GPT model. GPT-6 selection accepts both the GPT-6 radio and legacy Latest labels. Model selection and thinking effort are verified separately: `heavy` does not request the Pro tier.
+
+An explicit GPT-6 Pro model alias takes precedence over saved `browser.thinkingTime` defaults. A per-call `browserThinkingTime` still takes precedence over the alias. Older model aliases, an omitted model, and a `current`/`ignore` model strategy keep their existing saved-effort behavior.
