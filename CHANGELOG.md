@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- MCP: honor an explicit GPT-6 Pro browser request ahead of saved thinking effort, while preserving explicit request overrides and current/ignore strategies.
+- OmO Native: add an opt-in local-fork MCP installer with backups, dry-run and preservation checks, plus a Traditional Chinese installation and session-recovery guide in `docs/omo-native-zh-TW.md`.
+
 ## 0.22.1 - 2026-10-23
 
 **Highlights:** Keep authenticated ChatGPT sessions working despite stray login controls and restore compatible terminal progress updates.

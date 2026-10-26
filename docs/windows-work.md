@@ -14,6 +14,9 @@ Read this file whenever you're working from Windows and add new findings so the 
 
 Future Windows gotchas belong here. Update this doc when you learn something new.
 
+- MCP GPT-6 Pro requests must apply their Pro default before saved Standard/Extended effort, as the CLI does; an explicit per-call effort still wins. Verify the GPT-6 radio and the Pro power tier separately. The OmO setup and recovery guide is `docs/omo-native-zh-TW.md`.
+- `node scripts/install-omo-mcp.mjs` registers this built checkout in OmO without replacing unrelated servers. Restart existing OmO MCP connections after changing the registered executable; a new stdio client can verify the exact registered command.
+
 - Chinese ChatGPT can announce `回答已完成` and place localized copy controls outside the search unit inside a `data-talvt-turn-state` wrapper. Completion and Markdown capture must scope those controls to the current assistant exchange. Keep user-message and code-block exclusions in the shared selector too: Deep Research queries it directly without the ordinary turn-action locator's guards.
 
 - Run focused Vitest suites with `node node_modules/vitest/vitest.mjs run ...` if the package-manager command cannot resolve the Windows executable shim in an automation environment.
