@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Browser: recognize separator-joined warning codes such as `cloudflare_challenge` and `rate_limit_exceeded` in timeout diagnostics; thanks @etafund.
+
 - Dependencies: update Undici to 7.30.1 for upstream security fixes and refresh OpenAI, Google GenAI, MCP, Puppeteer, and DevTools types after the two-day cooldown; retain Node >=24.
 - Browser: retry a failed ChatGPT page load once, distinguish unloaded pages from signed-out sessions, and print sanitized login diagnostics; thanks @postoso.
 - Dependencies: update fast-uri to 4.2.3 and body-parser to 2.4.0 for upstream URI handling and compressed-request security fixes.
