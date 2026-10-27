@@ -1,0 +1,24 @@
+{
+  "models": [
+    { "label": "3.8 Flash", "selector": "#model-flash", "selected": false, "disabled": false },
+    { "label": "4 Argon", "selector": "#model-argon", "selected": true, "disabled": false },
+    {
+      "label": "Future Exact Label",
+      "selector": "#model-future",
+      "selected": false,
+      "disabled": false
+    }
+  ],
+  "thinking": [
+    { "label": "低", "selector": "#effort-low", "selected": true, "disabled": false },
+    { "label": "中等", "selector": "#effort-medium", "selected": false, "disabled": false },
+    { "label": "高", "selector": "#effort-high", "selected": false, "disabled": false }
+  ],
+  "tools": [
+    { "label": "建立圖像", "selector": "#image", "selected": false, "disabled": false },
+    { "label": "建立影片", "selector": "#video", "selected": false, "disabled": false },
+    { "label": "創作音樂", "selector": "#music", "selected": false, "disabled": false },
+    { "label": "Deep Research", "selector": "#research", "selected": false, "disabled": false },
+    { "label": "Canvas", "selector": "#canvas", "selected": false, "disabled": false }
+  ]
+}

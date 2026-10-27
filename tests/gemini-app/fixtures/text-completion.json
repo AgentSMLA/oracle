@@ -1,0 +1,11 @@
+{
+  "provenance": "Sanitized structural fields from manual-text-completion-dom.json, captured October 27, 2026. Runtime IDs, telemetry and Angular attributes omitted.",
+  "responseClass": "enable-lr26-response-chrome-updates",
+  "processingClass": "model-response-text processing-state-visible",
+  "markdownClass": "markdown markdown-main-panel md-content enable-luminous-fast-follows enable-updated-hr-color stronger",
+  "busyState": "false",
+  "footerClass": "response-footer gap complete",
+  "outerFooterClass": "response-container-footer",
+  "actionLabel": "答得好",
+  "token": "ORACLE_GEMINI_DOM_BASELINE"
+}

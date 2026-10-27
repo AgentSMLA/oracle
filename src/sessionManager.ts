@@ -29,6 +29,7 @@ import { DEFAULT_MODEL } from "./oracle/config.js";
 import { formatElapsed } from "./oracle/format.js";
 import { safeModelSlug } from "./oracle/modelResolver.js";
 import { getOracleHomeDir } from "./oracleHome.js";
+import type { GeminiAppRequest, GeminiAppResult } from "./gemini-app/types.js";
 
 export type SessionMode = "api" | "browser";
 
@@ -265,6 +266,7 @@ export interface SessionUserErrorMetadata {
 
 export interface StoredRunOptions {
   prompt?: string;
+  geminiApp?: GeminiAppRequest;
   file?: string[];
   maxFileSizeBytes?: number;
   model?: string;
@@ -321,6 +323,8 @@ export interface StoredRunOptions {
 
 export interface SessionMetadata {
   id: string;
+  /** Actual BrowserSkill observations, never requested UI labels or planned artifacts. */
+  geminiApp?: GeminiAppResult;
   createdAt: string;
   status: string;
   promptPreview?: string;
@@ -745,7 +749,7 @@ export async function initializeSession(
     cwd,
     mode,
     browser:
-      mode === "browser"
+      mode === "browser" && !options.geminiApp
         ? {
             ...(browserConfig ? { config: browserConfig } : {}),
             runtime: { submittedPromptHash: null },
@@ -756,6 +760,7 @@ export async function initializeSession(
     notifications,
     options: {
       prompt: options.prompt,
+      geminiApp: options.geminiApp,
       file: options.file ?? [],
       maxFileSizeBytes: options.maxFileSizeBytes,
       model: options.model,

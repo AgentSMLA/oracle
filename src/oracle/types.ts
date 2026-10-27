@@ -1,3 +1,5 @@
+import type { GeminiAppRequest } from "../gemini-app/types.js";
+
 export type TokenizerFn = (input: unknown, options?: Record<string, unknown>) => number;
 
 export type KnownModelName =
@@ -171,6 +173,8 @@ export interface ClientLike {
 export interface RunOracleOptions {
   prompt: string;
   model: ModelName;
+  /** Dedicated Gemini App request; bypasses legacy API/browser model resolution. */
+  geminiApp?: GeminiAppRequest;
   models?: ModelName[];
   /** Reasoning effort override. GPT-5.6 API models only. */
   reasoningEffort?: ReasoningEffort;

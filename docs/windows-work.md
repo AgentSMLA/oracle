@@ -1,4 +1,4 @@
-﻿# Windows work notes
+# Windows work notes
 
 Read this file whenever you're working from Windows and add new findings so the next agent can stay unblocked.
 
@@ -41,3 +41,10 @@ Future Windows gotchas belong here. Update this doc when you learn something new
 - After merging a dependency update that changes oxfmt, CRLF checkouts may fail format checks across otherwise unchanged files. Normalize tracked text working copies to LF and use `git -c core.autocrlf=false` for staging; verify the resulting diff contains only intended changes.
 
 Provider-native conversation evidence uses the existing browser connection on Windows too. Files follow the account/directory ACLs; the POSIX owner-only file mode assertion is skipped on Windows. Capture failures leave the normal answer available.
+
+- Gemini App (`gemini_app` MCP tool) uses BrowserSkill (`bsk.exe`) against an existing signed-in Microsoft Edge connection and sets `BSK_AUTO_START=0` on every call. On Windows:
+  - BrowserSkill's default PowerShell installer can fail silently (`cli: install failed`); install or repair the CLI with `pwsh` (PowerShell 7) via the official installer (`omowright.installBskCli` with a `pwsh` runner) so `C:/Users/<user>/.local/bin/bsk.exe` passes checksum verification, or set `BSK_BIN` explicitly. Detached session workers resolve relative `BSK_BIN` values to absolute paths.
+  - Plain `bsk daemon start` fails on Windows with a Job Object breakaway error. Start the daemon with `bsk daemon start --foreground` inside a managed background session / host monitor before calling `gemini_app`.
+  - Keep the user's signed-in Edge profile and cookies intact: each `gemini_app` run allocates its own `--no-focus` BrowserSkill automation session and stops only that session on completion or cancellation. Never clear cookies, delete the browser profile, or kill the user's Edge process.
+  - The same `gemini_app` BrowserSkill setup supports AI Studio Playground chat with `site: "ai-studio"`. Keep production models selectable; actual test generations use only Flash-Lite.
+  - Further Gemini App live generation/research acceptance was stopped at the user's request; unverified capabilities are not counted as passed.

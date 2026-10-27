@@ -57,7 +57,6 @@ import {
   detachedSessionCancellationPath,
   launchDetachedSession,
   requestDetachedSessionCancellation,
-  waitForDetachedSessionCancellation,
 } from "../src/cli/detachedSession.js";
 import { applyHiddenAliases } from "../src/cli/hiddenAliases.js";
 import type { BrowserSessionRunnerDeps } from "../src/browser/sessionRunner.js";
@@ -92,7 +91,6 @@ import {
   isTraceValueFlag,
 } from "../src/cli/perfTrace.js";
 import { resolveBrowserFollowupReference } from "../src/cli/followup.js";
-import { BrowserRunCancelledError } from "../src/oracle/errors.js";
 
 interface CliOptions extends OptionValues {
   prompt?: string;
@@ -1750,60 +1748,7 @@ function extractResponseIdFromSession(
   return runResponseId && runResponseId.startsWith("resp_") ? runResponseId : null;
 }
 
-function buildRunOptionsFromMetadata(metadata: SessionMetadata): RunOracleOptions {
-  const stored = metadata.options ?? {};
-  return {
-    prompt: stored.prompt ?? "",
-    model: (stored.model as ModelName) ?? DEFAULT_MODEL,
-    models: stored.models as ModelName[] | undefined,
-    previousResponseId: stored.previousResponseId,
-    browserResumeConversationUrl: stored.browserResumeConversationUrl,
-    effectiveModelId: stored.effectiveModelId ?? stored.model,
-    modelOverrides: stored.modelOverrides,
-    reasoningEffort: stored.reasoningEffort,
-    reasoningMode: stored.reasoningMode,
-    file: stored.file ?? [],
-    maxFileSizeBytes: stored.maxFileSizeBytes,
-    slug: stored.slug,
-    filesReport: stored.filesReport,
-    maxInput: stored.maxInput,
-    maxOutput: stored.maxOutput,
-    system: stored.system,
-    silent: stored.silent,
-    search: stored.search,
-    preview: false,
-    previewMode: undefined,
-    apiKey: undefined,
-    provider: stored.provider,
-    baseUrl: normalizeBaseUrl(stored.baseUrl),
-    azure: stored.azure,
-    timeoutSeconds: stored.timeoutSeconds,
-    httpTimeoutMs: stored.httpTimeoutMs,
-    zombieTimeoutMs: stored.zombieTimeoutMs,
-    zombieUseLastActivity: stored.zombieUseLastActivity,
-    partialMode: stored.partialMode,
-    sessionId: metadata.id,
-    verbose: stored.verbose,
-    heartbeatIntervalMs: stored.heartbeatIntervalMs,
-    browserAttachments: stored.browserAttachments,
-    browserInlineFiles: stored.browserInlineFiles,
-    browserBundleFiles: stored.browserBundleFiles,
-    browserBundleFormat: stored.browserBundleFormat,
-    generateImage: stored.generateImage,
-    youtube: stored.youtube,
-    editImage: stored.editImage,
-    aspectRatio: stored.aspectRatio,
-    geminiShowThoughts: stored.geminiShowThoughts,
-    geminiAllowModelFallback: stored.geminiAllowModelFallback,
-    outputPath: stored.outputPath,
-    browserFollowUps: stored.browserFollowUps,
-    background: stored.background,
-    renderPlain: stored.renderPlain,
-    writeOutputPath: stored.writeOutputPath,
-    writeArtifacts: stored.writeArtifacts,
-  };
-}
-
+import { buildRunOptionsFromMetadata } from "../src/cli/sessionRunner.js";
 function getSessionMode(metadata: SessionMetadata): SessionMode {
   return metadata.mode ?? metadata.options?.mode ?? "api";
 }
@@ -2152,7 +2097,8 @@ async function runRootCommand(options: CliOptions): Promise<void> {
 
   if (options.execSession) {
     await waitForDetachedStartGate();
-    await executeSession(options.execSession);
+    const { runStoredSessionWorker } = await import("../src/cli/sessionRunner.js");
+    process.exitCode = await runStoredSessionWorker(options.execSession, { version: VERSION });
     return;
   }
 
@@ -2879,94 +2825,6 @@ async function restartSession(sessionId: string, options: RestartCommandOptions)
   if (detached) {
     console.log(chalk.blue(`Reattach via: oracle session ${sessionMeta.id}`));
     await attachToDetachedSession(sessionMeta.id, workerPid);
-  }
-}
-
-async function executeSession(sessionId: string) {
-  let metadata: SessionMetadata | null = null;
-  let writer: ReturnType<typeof sessionStore.createLogWriter> | null = null;
-  const cancellation = new AbortController();
-  const stopCancellationMonitor = new AbortController();
-  let cancellationMarker: string | undefined;
-  let cancellationMonitor: Promise<void> | undefined;
-  try {
-    metadata = await sessionStore.readSession(sessionId);
-    if (!metadata) {
-      throw new Error(`No session found with ID ${sessionId}`);
-    }
-    if (
-      process.env.ORACLE_DETACHED_START_GATE === "1" &&
-      metadata.lifecycle?.workerPid !== process.pid
-    ) {
-      throw new Error("Detached session worker started without a matching lifecycle handoff.");
-    }
-    const runOptions = buildRunOptionsFromMetadata(metadata);
-    const sessionMode = getSessionMode(metadata);
-    const browserConfig = getBrowserConfigFromMetadata(metadata);
-    writer = sessionStore.createLogWriter(sessionId);
-    if (sessionMode === "browser") {
-      const paths = await sessionStore.getPaths(sessionId);
-      cancellationMarker = detachedSessionCancellationPath(paths.dir, process.pid);
-      cancellationMonitor = waitForDetachedSessionCancellation({
-        markerPath: cancellationMarker,
-        signal: stopCancellationMonitor.signal,
-      }).then((requested) => {
-        if (requested) {
-          cancellation.abort(new BrowserRunCancelledError("Browser run cancelled by the user."));
-        }
-      });
-    }
-    const userConfig = (await loadUserConfig()).config;
-    const notifications = deriveNotificationSettingsFromMetadata(
-      metadata,
-      process.env,
-      userConfig.notify,
-    );
-    const { performSessionRun } = await import("../src/cli/sessionRunner.js");
-    await performSessionRun({
-      sessionMeta: metadata,
-      runOptions,
-      mode: sessionMode,
-      browserConfig,
-      cwd: metadata.cwd ?? process.cwd(),
-      log: writer.logLine,
-      write: writer.writeChunk,
-      version: VERSION,
-      notifications,
-      signal: sessionMode === "browser" ? cancellation.signal : undefined,
-    });
-  } catch (error) {
-    const cancelled = error instanceof BrowserRunCancelledError;
-    process.exitCode = cancelled ? 130 : 1;
-    const message = error instanceof Error ? error.message : String(error);
-    if (!metadata) {
-      if (!cancelled) console.error(chalk.red(message));
-      return;
-    }
-    if (!cancelled) writer?.logLine(`ERROR: Detached session worker failed: ${message}`);
-    const latest = await sessionStore.readSession(sessionId).catch(() => null);
-    if (latest && !["completed", "partial", "error", "cancelled"].includes(latest.status)) {
-      await sessionStore.updateSession(sessionId, {
-        status: "error",
-        completedAt: new Date().toISOString(),
-        errorMessage: message,
-        response: { status: "error" },
-        error: {
-          category: "internal",
-          message,
-        },
-      });
-    }
-  } finally {
-    stopCancellationMonitor.abort();
-    await cancellationMonitor?.catch((error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      writer?.logLine(`ERROR: Detached cancellation monitor failed: ${message}`);
-    });
-    if (cancellationMarker) {
-      await clearDetachedSessionCancellation(cancellationMarker).catch(() => undefined);
-    }
-    writer?.stream.end();
   }
 }
 

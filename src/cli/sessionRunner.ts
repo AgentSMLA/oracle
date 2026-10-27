@@ -37,7 +37,7 @@ import {
 } from "./notifier.js";
 import { sessionStore } from "../sessionStore.js";
 import { runMultiModelApiSession, type MultiModelRunSummary } from "../oracle/multiModelRunner.js";
-import { MODEL_CONFIGS, DEFAULT_SYSTEM_PROMPT } from "../oracle/config.js";
+import { MODEL_CONFIGS, DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT } from "../oracle/config.js";
 import { isKnownModel } from "../oracle/modelResolver.js";
 import { resolveModelConfig } from "../oracle/modelResolver.js";
 import { buildPrompt, buildRequestBody } from "../oracle/request.js";
@@ -60,9 +60,169 @@ import { computeFileSha256, sanitizeArtifactFilename } from "../browser/artifact
 import { formatElapsed } from "../oracle/format.js";
 import { formatBrowserReattachGuidance } from "./reattachGuidance.js";
 import { BrowserRunCancelledError } from "../oracle/errors.js";
+import { performGeminiAppSession } from "../gemini-app/session.js";
+import { loadUserConfig } from "../config.js";
+import { normalizeBaseUrl } from "./options.js";
+import {
+  clearDetachedSessionCancellation,
+  detachedSessionCancellationPath,
+  waitForDetachedSessionCancellation,
+} from "./detachedSession.js";
 
 const isTty = process.stdout.isTTY;
 const dim = (text: string): string => (isTty ? kleur.dim(text) : text);
+
+export function buildRunOptionsFromMetadata(metadata: SessionMetadata): RunOracleOptions {
+  const stored = metadata.options ?? {};
+  return {
+    prompt: stored.prompt ?? "",
+    geminiApp: stored.geminiApp,
+    model: stored.model ?? DEFAULT_MODEL,
+    models: stored.models,
+    previousResponseId: stored.previousResponseId,
+    browserResumeConversationUrl: stored.browserResumeConversationUrl,
+    effectiveModelId: stored.effectiveModelId ?? stored.model,
+    modelOverrides: stored.modelOverrides,
+    reasoningEffort: stored.reasoningEffort,
+    reasoningMode: stored.reasoningMode,
+    file: stored.file ?? [],
+    maxFileSizeBytes: stored.maxFileSizeBytes,
+    slug: stored.slug,
+    filesReport: stored.filesReport,
+    maxInput: stored.maxInput,
+    maxOutput: stored.maxOutput,
+    system: stored.system,
+    silent: stored.silent,
+    search: stored.search,
+    preview: false,
+    previewMode: undefined,
+    apiKey: undefined,
+    provider: stored.provider,
+    baseUrl: normalizeBaseUrl(stored.baseUrl),
+    azure: stored.azure,
+    timeoutSeconds: stored.timeoutSeconds,
+    httpTimeoutMs: stored.httpTimeoutMs,
+    zombieTimeoutMs: stored.zombieTimeoutMs,
+    zombieUseLastActivity: stored.zombieUseLastActivity,
+    partialMode: stored.partialMode,
+    sessionId: metadata.id,
+    verbose: stored.verbose,
+    heartbeatIntervalMs: stored.heartbeatIntervalMs,
+    browserAttachments: stored.browserAttachments,
+    browserInlineFiles: stored.browserInlineFiles,
+    browserBundleFiles: stored.browserBundleFiles,
+    browserBundleFormat: stored.browserBundleFormat,
+    generateImage: stored.generateImage,
+    youtube: stored.youtube,
+    editImage: stored.editImage,
+    aspectRatio: stored.aspectRatio,
+    geminiShowThoughts: stored.geminiShowThoughts,
+    geminiAllowModelFallback: stored.geminiAllowModelFallback,
+    outputPath: stored.outputPath,
+    browserFollowUps: stored.browserFollowUps,
+    background: stored.background,
+    renderPlain: stored.renderPlain,
+    writeOutputPath: stored.writeOutputPath,
+    writeArtifacts: stored.writeArtifacts,
+  };
+}
+
+export interface StoredSessionWorkerDependencies {
+  readonly store?: typeof sessionStore;
+  readonly loadConfig?: () => Promise<{
+    config: { notify?: Parameters<typeof deriveNotificationSettingsFromMetadata>[2] };
+  }>;
+  readonly runSession?: (params: SessionRunParams) => Promise<void>;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly pid?: number;
+  readonly version?: string;
+  readonly reportMissingSessionError?: (message: string) => void;
+}
+
+export async function runStoredSessionWorker(
+  sessionId: string,
+  deps: StoredSessionWorkerDependencies = {},
+): Promise<number> {
+  const store = deps.store ?? sessionStore;
+  const env = deps.env ?? process.env;
+  const pid = deps.pid ?? process.pid;
+  let metadata: SessionMetadata | null = null;
+  let writer: ReturnType<typeof sessionStore.createLogWriter> | null = null;
+  const cancellation = new AbortController();
+  const stopCancellationMonitor = new AbortController();
+  let cancellationMarker: string | undefined;
+  let cancellationMonitor: Promise<void> | undefined;
+  try {
+    metadata = await store.readSession(sessionId);
+    if (!metadata) throw new Error(`No session found with ID ${sessionId}`);
+    if (env.ORACLE_DETACHED_START_GATE === "1" && metadata.lifecycle?.workerPid !== pid) {
+      throw new Error("Detached session worker started without a matching lifecycle handoff.");
+    }
+    const runOptions = buildRunOptionsFromMetadata(metadata);
+    const mode = metadata.mode ?? metadata.options.mode ?? "api";
+    if (metadata.options.geminiApp && env.BSK_BIN?.trim())
+      env.BSK_BIN = path.resolve(env.BSK_BIN.trim());
+    const browserConfig = metadata.options.browserConfig ?? metadata.browser?.config;
+    writer = store.createLogWriter(sessionId);
+    if (mode === "browser") {
+      const paths = await store.getPaths(sessionId);
+      cancellationMarker = detachedSessionCancellationPath(paths.dir, pid);
+      cancellationMonitor = waitForDetachedSessionCancellation({
+        markerPath: cancellationMarker,
+        signal: stopCancellationMonitor.signal,
+      }).then((requested) => {
+        if (requested)
+          cancellation.abort(new BrowserRunCancelledError("Browser run cancelled by the user."));
+      });
+    }
+    const config = deps.loadConfig
+      ? (await deps.loadConfig()).config
+      : (await loadUserConfig()).config;
+    const notifications = deriveNotificationSettingsFromMetadata(metadata, env, config.notify);
+    const runSession = deps.runSession ?? performSessionRun;
+    await runSession({
+      sessionMeta: metadata,
+      runOptions,
+      mode,
+      browserConfig,
+      cwd: metadata.cwd ?? process.cwd(),
+      log: writer.logLine,
+      write: writer.writeChunk,
+      version: deps.version ?? "unknown",
+      notifications,
+      signal: mode === "browser" ? cancellation.signal : undefined,
+    });
+    return 0;
+  } catch (error) {
+    const cancelled = error instanceof BrowserRunCancelledError;
+    const message = error instanceof Error ? error.message : String(error);
+    if (!metadata) {
+      if (!cancelled) (deps.reportMissingSessionError ?? console.error)(message);
+      return cancelled ? 130 : 1;
+    }
+    if (!cancelled) writer?.logLine(`ERROR: Detached session worker failed: ${message}`);
+    const latest = await store.readSession(sessionId).catch(() => null);
+    if (latest && !["completed", "partial", "error", "cancelled"].includes(latest.status)) {
+      await store.updateSession(sessionId, {
+        status: "error",
+        completedAt: new Date().toISOString(),
+        errorMessage: message,
+        response: { status: "error" },
+        error: { category: "internal", message },
+      });
+    }
+    return cancelled ? 130 : 1;
+  } finally {
+    stopCancellationMonitor.abort();
+    await cancellationMonitor?.catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      writer?.logLine(`ERROR: Detached cancellation monitor failed: ${message}`);
+    });
+    if (cancellationMarker)
+      await clearDetachedSessionCancellation(cancellationMarker).catch(() => undefined);
+    writer?.stream.end();
+  }
+}
 
 export interface SessionRunParams {
   sessionMeta: SessionMetadata;
@@ -93,6 +253,11 @@ export async function performSessionRun({
   muteStdout = false,
   signal,
 }: SessionRunParams): Promise<void> {
+  const geminiApp = runOptions.geminiApp ?? sessionMeta.options.geminiApp;
+  if (geminiApp) {
+    await performGeminiAppSession({ sessionMeta, request: geminiApp, log, signal });
+    return;
+  }
   const writeInline = (chunk: string): boolean => {
     // Keep session logs intact while still echoing inline output to the user.
     write(chunk);

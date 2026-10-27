@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { getCliVersion } from "../version.js";
 import { registerChatGptImageTool } from "./tools/chatgptImage.js";
+import { registerGeminiAppTool } from "./tools/geminiApp.js";
 import { registerConsultTool } from "./tools/consult.js";
 import { registerProjectSourcesTool } from "./tools/projectSources.js";
 import { registerSessionsTool } from "./tools/sessions.js";
@@ -27,6 +28,7 @@ export function createMcpServer(): McpServer {
 
   registerConsultTool(server);
   registerChatGptImageTool(server);
+  registerGeminiAppTool(server);
   registerProjectSourcesTool(server);
   registerSessionsTool(server);
   registerWaitTool(server);

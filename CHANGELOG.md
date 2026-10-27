@@ -4,6 +4,7 @@
 
 - MCP: honor an explicit GPT-6 Pro browser request ahead of saved thinking effort, while preserving explicit request overrides and current/ignore strategies.
 - OmO Native: add an opt-in local-fork MCP installer with backups, dry-run and preservation checks, plus a Traditional Chinese installation and session-recovery guide in `docs/omo-native-zh-TW.md`.
+- Google browser: add `gemini_app` for signed-in Gemini App discovery/runs and AI Studio Playground chat via `site: "ai-studio"`, with selectable models/thinking, detached recovery and owned-session cleanup. Production models remain selectable; actual test generations use only Flash-Lite. Further Gemini media/research live acceptance was stopped at the user's request, not marked passed.
 
 ## 0.22.1 - 2026-10-23
 

@@ -199,6 +199,27 @@ describe("session lifecycle", () => {
     }
   });
 
+  test("persists the nested Gemini App request without ChatGPT browser state", async () => {
+    const request = {
+      action: "run" as const,
+      prompt: "Keep the exact Gemini model label",
+      model: "4 Argon",
+      thinking: "current" as const,
+      mode: "deep-research" as const,
+      outputDir: path.resolve(oracleHomeDir, "generated", "gemini-app-test"),
+      timeoutMs: 90_000,
+      browser: "edge",
+    };
+    const metadata = await sessionModule.initializeSession(
+      { prompt: request.prompt, model: "gemini-app", mode: "browser", geminiApp: request },
+      process.cwd(),
+    );
+    const stored = await sessionModule.readSessionMetadata(metadata.id);
+    expect(stored?.options.geminiApp).toEqual(request);
+    expect(stored?.browser).toBeUndefined();
+    expect(stored?.model).toBe("gemini-app");
+  });
+
   test("session directory and log artifacts are owner-only (no world/group read)", async () => {
     if (process.platform === "win32") {
       return;
